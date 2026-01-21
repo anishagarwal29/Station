@@ -6,53 +6,8 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		2F2659E02F206B6200FA5591 /* ClassesBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659CF2F206B6200FA5591 /* ClassesBlock.swift */; };
-		2F2659E12F206B6200FA5591 /* QuickNotesBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659D22F206B6200FA5591 /* QuickNotesBlock.swift */; };
-		2F2659E22F206B6200FA5591 /* QuickNote.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659C82F206B6200FA5591 /* QuickNote.swift */; };
-		2F2659E32F206B6200FA5591 /* AddUpcomingItemSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659DB2F206B6200FA5591 /* AddUpcomingItemSheet.swift */; };
-		2F2659E42F206B6200FA5591 /* UpcomingBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659D32F206B6200FA5591 /* UpcomingBlock.swift */; };
-		2F2659E52F206B6200FA5591 /* AlertsBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659CE2F206B6200FA5591 /* AlertsBlock.swift */; };
-		2F2659E62F206B6200FA5591 /* UpcomingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659DC2F206B6200FA5591 /* UpcomingView.swift */; };
-		2F2659E72F206B6200FA5591 /* StationApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659BF2F206B6200FA5591 /* StationApp.swift */; };
-		2F2659E82F206B6200FA5591 /* Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659CC2F206B6200FA5591 /* Persistence.swift */; };
-		2F2659E92F206B6200FA5591 /* DateFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659CB2F206B6200FA5591 /* DateFormatting.swift */; };
-		2F2659EA2F206B6200FA5591 /* NotesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659C52F206B6200FA5591 /* NotesManager.swift */; };
-		2F2659EB2F206B6200FA5591 /* HeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659D12F206B6200FA5591 /* HeaderView.swift */; };
-		2F2659EC2F206B6200FA5591 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659D72F206B6200FA5591 /* SettingsView.swift */; };
-		2F2659ED2F206B6200FA5591 /* CalendarManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659C42F206B6200FA5591 /* CalendarManager.swift */; };
-		2F2659EE2F206B6200FA5591 /* UpcomingItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659C92F206B6200FA5591 /* UpcomingItem.swift */; };
-		2F2659EF2F206B6200FA5591 /* NotesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659D52F206B6200FA5591 /* NotesView.swift */; };
-		2F2659F02F206B6200FA5591 /* UpcomingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659C62F206B6200FA5591 /* UpcomingManager.swift */; };
-		2F2659F12F206B6200FA5591 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659D92F206B6200FA5591 /* MainTabView.swift */; };
-		2F2659F22F206B6200FA5591 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659D02F206B6200FA5591 /* DashboardView.swift */; };
-		2F2659F32F206B6200FA5591 /* DateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659C12F206B6200FA5591 /* DateManager.swift */; };
-		2F2659F42F206B6200FA5591 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2659C22F206B6200FA5591 /* Theme.swift */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXFileReference section */
 		2F2659202F1FAAE800FA5591 /* Station.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Station.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		2F2659BF2F206B6200FA5591 /* StationApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationApp.swift; sourceTree = "<group>"; };
-		2F2659C12F206B6200FA5591 /* DateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateManager.swift; sourceTree = "<group>"; };
-		2F2659C22F206B6200FA5591 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
-		2F2659C42F206B6200FA5591 /* CalendarManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarManager.swift; sourceTree = "<group>"; };
-		2F2659C52F206B6200FA5591 /* NotesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesManager.swift; sourceTree = "<group>"; };
-		2F2659C62F206B6200FA5591 /* UpcomingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpcomingManager.swift; sourceTree = "<group>"; };
-		2F2659C82F206B6200FA5591 /* QuickNote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickNote.swift; sourceTree = "<group>"; };
-		2F2659C92F206B6200FA5591 /* UpcomingItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpcomingItem.swift; sourceTree = "<group>"; };
-		2F2659CB2F206B6200FA5591 /* DateFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateFormatting.swift; sourceTree = "<group>"; };
-		2F2659CC2F206B6200FA5591 /* Persistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence.swift; sourceTree = "<group>"; };
-		2F2659CE2F206B6200FA5591 /* AlertsBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertsBlock.swift; sourceTree = "<group>"; };
-		2F2659CF2F206B6200FA5591 /* ClassesBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClassesBlock.swift; sourceTree = "<group>"; };
-		2F2659D02F206B6200FA5591 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
-		2F2659D12F206B6200FA5591 /* HeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeaderView.swift; sourceTree = "<group>"; };
-		2F2659D22F206B6200FA5591 /* QuickNotesBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuickNotesBlock.swift; sourceTree = "<group>"; };
-		2F2659D32F206B6200FA5591 /* UpcomingBlock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpcomingBlock.swift; sourceTree = "<group>"; };
-		2F2659D52F206B6200FA5591 /* NotesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesView.swift; sourceTree = "<group>"; };
-		2F2659D72F206B6200FA5591 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		2F2659D92F206B6200FA5591 /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
-		2F2659DB2F206B6200FA5591 /* AddUpcomingItemSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddUpcomingItemSheet.swift; sourceTree = "<group>"; };
-		2F2659DC2F206B6200FA5591 /* UpcomingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpcomingView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -77,7 +32,6 @@
 		2F2659172F1FAAE800FA5591 = {
 			isa = PBXGroup;
 			children = (
-				2F2659DF2F206B6200FA5591 /* Station */,
 				2F2659222F1FAAE800FA5591 /* Station */,
 				2F2659212F1FAAE800FA5591 /* Products */,
 			);
@@ -90,123 +44,6 @@
 			);
 			name = Products;
 			sourceTree = "<group>";
-		};
-		2F2659C02F206B6200FA5591 /* App */ = {
-			isa = PBXGroup;
-			children = (
-				2F2659BF2F206B6200FA5591 /* StationApp.swift */,
-			);
-			path = App;
-			sourceTree = "<group>";
-		};
-		2F2659C32F206B6200FA5591 /* Core */ = {
-			isa = PBXGroup;
-			children = (
-				2F2659C12F206B6200FA5591 /* DateManager.swift */,
-				2F2659C22F206B6200FA5591 /* Theme.swift */,
-			);
-			path = Core;
-			sourceTree = "<group>";
-		};
-		2F2659C72F206B6200FA5591 /* Managers */ = {
-			isa = PBXGroup;
-			children = (
-				2F2659C42F206B6200FA5591 /* CalendarManager.swift */,
-				2F2659C52F206B6200FA5591 /* NotesManager.swift */,
-				2F2659C62F206B6200FA5591 /* UpcomingManager.swift */,
-			);
-			path = Managers;
-			sourceTree = "<group>";
-		};
-		2F2659CA2F206B6200FA5591 /* Models */ = {
-			isa = PBXGroup;
-			children = (
-				2F2659C82F206B6200FA5591 /* QuickNote.swift */,
-				2F2659C92F206B6200FA5591 /* UpcomingItem.swift */,
-			);
-			path = Models;
-			sourceTree = "<group>";
-		};
-		2F2659CD2F206B6200FA5591 /* Utils */ = {
-			isa = PBXGroup;
-			children = (
-				2F2659CB2F206B6200FA5591 /* DateFormatting.swift */,
-				2F2659CC2F206B6200FA5591 /* Persistence.swift */,
-			);
-			path = Utils;
-			sourceTree = "<group>";
-		};
-		2F2659D42F206B6200FA5591 /* Dashboard */ = {
-			isa = PBXGroup;
-			children = (
-				2F2659CE2F206B6200FA5591 /* AlertsBlock.swift */,
-				2F2659CF2F206B6200FA5591 /* ClassesBlock.swift */,
-				2F2659D02F206B6200FA5591 /* DashboardView.swift */,
-				2F2659D12F206B6200FA5591 /* HeaderView.swift */,
-				2F2659D22F206B6200FA5591 /* QuickNotesBlock.swift */,
-				2F2659D32F206B6200FA5591 /* UpcomingBlock.swift */,
-			);
-			path = Dashboard;
-			sourceTree = "<group>";
-		};
-		2F2659D62F206B6200FA5591 /* Notes */ = {
-			isa = PBXGroup;
-			children = (
-				2F2659D52F206B6200FA5591 /* NotesView.swift */,
-			);
-			path = Notes;
-			sourceTree = "<group>";
-		};
-		2F2659D82F206B6200FA5591 /* Settings */ = {
-			isa = PBXGroup;
-			children = (
-				2F2659D72F206B6200FA5591 /* SettingsView.swift */,
-			);
-			path = Settings;
-			sourceTree = "<group>";
-		};
-		2F2659DA2F206B6200FA5591 /* Tabs */ = {
-			isa = PBXGroup;
-			children = (
-				2F2659D92F206B6200FA5591 /* MainTabView.swift */,
-			);
-			path = Tabs;
-			sourceTree = "<group>";
-		};
-		2F2659DD2F206B6200FA5591 /* Upcoming */ = {
-			isa = PBXGroup;
-			children = (
-				2F2659DB2F206B6200FA5591 /* AddUpcomingItemSheet.swift */,
-				2F2659DC2F206B6200FA5591 /* UpcomingView.swift */,
-			);
-			path = Upcoming;
-			sourceTree = "<group>";
-		};
-		2F2659DE2F206B6200FA5591 /* Views */ = {
-			isa = PBXGroup;
-			children = (
-				2F2659D42F206B6200FA5591 /* Dashboard */,
-				2F2659D62F206B6200FA5591 /* Notes */,
-				2F2659D82F206B6200FA5591 /* Settings */,
-				2F2659DA2F206B6200FA5591 /* Tabs */,
-				2F2659DD2F206B6200FA5591 /* Upcoming */,
-			);
-			path = Views;
-			sourceTree = "<group>";
-		};
-		2F2659DF2F206B6200FA5591 /* Station */ = {
-			isa = PBXGroup;
-			children = (
-				2F2659C02F206B6200FA5591 /* App */,
-				2F2659C32F206B6200FA5591 /* Core */,
-				2F2659C72F206B6200FA5591 /* Managers */,
-				2F2659CA2F206B6200FA5591 /* Models */,
-				2F2659CD2F206B6200FA5591 /* Utils */,
-				2F2659DE2F206B6200FA5591 /* Views */,
-			);
-			name = Station;
-			path = "../Station(AG)/Station";
-			sourceTree = SOURCE_ROOT;
 		};
 /* End PBXGroup section */
 
@@ -282,27 +119,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2F2659E02F206B6200FA5591 /* ClassesBlock.swift in Sources */,
-				2F2659E12F206B6200FA5591 /* QuickNotesBlock.swift in Sources */,
-				2F2659E22F206B6200FA5591 /* QuickNote.swift in Sources */,
-				2F2659E32F206B6200FA5591 /* AddUpcomingItemSheet.swift in Sources */,
-				2F2659E42F206B6200FA5591 /* UpcomingBlock.swift in Sources */,
-				2F2659E52F206B6200FA5591 /* AlertsBlock.swift in Sources */,
-				2F2659E62F206B6200FA5591 /* UpcomingView.swift in Sources */,
-				2F2659E72F206B6200FA5591 /* StationApp.swift in Sources */,
-				2F2659E82F206B6200FA5591 /* Persistence.swift in Sources */,
-				2F2659E92F206B6200FA5591 /* DateFormatting.swift in Sources */,
-				2F2659EA2F206B6200FA5591 /* NotesManager.swift in Sources */,
-				2F2659EB2F206B6200FA5591 /* HeaderView.swift in Sources */,
-				2F2659EC2F206B6200FA5591 /* SettingsView.swift in Sources */,
-				2F2659ED2F206B6200FA5591 /* CalendarManager.swift in Sources */,
-				2F2659EE2F206B6200FA5591 /* UpcomingItem.swift in Sources */,
-				2F2659EF2F206B6200FA5591 /* NotesView.swift in Sources */,
-				2F2659F02F206B6200FA5591 /* UpcomingManager.swift in Sources */,
-				2F2659F12F206B6200FA5591 /* MainTabView.swift in Sources */,
-				2F2659F22F206B6200FA5591 /* DashboardView.swift in Sources */,
-				2F2659F32F206B6200FA5591 /* DateManager.swift in Sources */,
-				2F2659F42F206B6200FA5591 /* Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
