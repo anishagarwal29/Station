@@ -9,7 +9,7 @@ class UpcomingManager: ObservableObject {
         }
     }
     
-    @Published var clearedAlertIDs: Set<UUID> = [] {
+    @Published var clearedAlertIDs: Set<String> = [] {
         didSet {
             saveClearedAlerts()
         }
@@ -40,10 +40,8 @@ class UpcomingManager: ObservableObject {
         items.removeAll { $0.id == id }
     }
     
-    func markAlertsAsCleared(ids: [UUID]) {
-        for id in ids {
-            clearedAlertIDs.insert(id)
-        }
+    func markAlertsAsCleared(ids: [String]) {
+        clearedAlertIDs.formUnion(ids)
     }
     
     func refresh() {
@@ -65,7 +63,7 @@ class UpcomingManager: ObservableObject {
         
         // Also clean up clearedAlertIDs for items that no longer exist
         // This prevents the set from growing indefinitely
-        let currentIDs = Set(items.map { $0.id })
+        let currentIDs = Set(items.map { $0.id.uuidString })
         clearedAlertIDs = clearedAlertIDs.intersection(currentIDs)
         
         items.sort {
@@ -87,7 +85,7 @@ class UpcomingManager: ObservableObject {
     }
     
     private func saveClearedAlerts() {
-        // Convert Set<UUID> to Array for JSON encoding
+        // Convert Set<String> to Array for JSON encoding
         let array = Array(clearedAlertIDs)
         if let encoded = try? JSONEncoder().encode(array) {
             UserDefaults.standard.set(encoded, forKey: clearedAlertsKey)
@@ -104,7 +102,7 @@ class UpcomingManager: ObservableObject {
     
     private func loadClearedAlerts() {
         if let data = UserDefaults.standard.data(forKey: clearedAlertsKey),
-           let decoded = try? JSONDecoder().decode([UUID].self, from: data) {
+           let decoded = try? JSONDecoder().decode([String].self, from: data) {
             clearedAlertIDs = Set(decoded)
         }
     }

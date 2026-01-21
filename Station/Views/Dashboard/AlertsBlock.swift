@@ -27,29 +27,31 @@ struct AlertsBlock: View {
         let fifteenMinutesAgo = now.addingTimeInterval(-900)
         
         var candidates: [Candidate] = []
+        var seenCalendarEventIDs = Set<String>() // Track calendar event IDs to prevent duplicates
         
         // 1. Upcoming Items
         let relevantItems = upcomingManager.items.filter { item in
             item.includeTime &&
             item.dueDate > fifteenMinutesAgo &&
-            !upcomingManager.clearedAlertIDs.contains(item.id)
+            !upcomingManager.clearedAlertIDs.contains(item.id.uuidString)
         }
         for item in relevantItems {
             candidates.append(Candidate(id: item.id.uuidString, title: item.title, date: item.dueDate, isUrgent: item.isUrgent))
         }
         
-        // 2. Calendar Events
+        // 2. Calendar Events - with deduplication
         // Filter: Start date within valid window (future or < 15m ago)
         // AND not cleared (we use event.id as the ID for clearing)
-        // Note: Calendar events are "standard" urgency unless we define otherwise.
         let relevantEvents = calendarManager.events.filter { event in
             event.startDate > fifteenMinutesAgo &&
-            !upcomingManager.clearedAlertIDs.contains(UUID(uuidString: event.id) ?? UUID()) // Safety check/workaround
-             // See previous step for reasoning on UUID conversion fallback. 
-             // Ideally we'd change clearedAlertIDs to Set<String> but we stick to this for now.
+            !upcomingManager.clearedAlertIDs.contains(event.id)
         }
         
         for event in relevantEvents {
+            // Deduplicate: Only add if we haven't seen this calendar event ID before
+            guard !seenCalendarEventIDs.contains(event.id) else { continue }
+            seenCalendarEventIDs.insert(event.id)
+            
             candidates.append(Candidate(id: event.id, title: event.title, date: event.startDate, isUrgent: false))
         }
         
@@ -130,9 +132,7 @@ struct AlertsBlock: View {
                     Button(action: {
                         // Clear ONLY the currently displayed alert
                         // This allows the next eligible item (if any) to automatically populate
-                        if let uuid = UUID(uuidString: currentAlert.id) {
-                            upcomingManager.markAlertsAsCleared(ids: [uuid])
-                        }
+                        upcomingManager.markAlertsAsCleared(ids: [currentAlert.id])
                     }) {
                         Text("Clear All")
                             .font(.system(size: 12, weight: .semibold))
@@ -199,3 +199,4 @@ struct AlertCard: View {
         )
     }
 }
+

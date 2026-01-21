@@ -1,7 +1,41 @@
 import SwiftUI
+import Combine
+
+// Separate Model for Dashboard Quick Notes
+struct QuickNote: Identifiable, Codable {
+    let id: UUID
+    var content: String
+    var lastUpdated: Date
+    
+    init(id: UUID = UUID(), content: String, lastUpdated: Date = Date()) {
+        self.id = id
+        self.content = content
+        self.lastUpdated = lastUpdated
+    }
+}
+
+// Separate Manager for Dashboard Quick Notes
+// Completely isolated from the main Notes Tab
+class QuickNotesManager: ObservableObject {
+    @Published var notes: [QuickNote] = []
+    
+    init() {
+        // Optional: Load some mock data or persistence here if needed
+        // For now, simple in-memory or mock for dashboard
+    }
+    
+    func addNote(_ content: String) {
+        let newNote = QuickNote(content: content)
+        notes.insert(newNote, at: 0)
+    }
+    
+    func deleteNote(id: UUID) {
+        notes.removeAll { $0.id == id }
+    }
+}
 
 struct QuickNotesBlock: View {
-    @StateObject private var notesManager = NotesManager()
+    @StateObject private var quickNotesManager = QuickNotesManager()
     @State private var isShowingAddNote = false
     @State private var newNoteText = ""
     
@@ -25,32 +59,31 @@ struct QuickNotesBlock: View {
                 .buttonStyle(.plain)
             }
             
-            VStack(alignment: .leading, spacing: 0) {
-                if notesManager.notes.isEmpty {
-                    Text("No notes. Click + to add one.")
-                        .font(.system(size: 14))
-                        .foregroundColor(Theme.textSecondary)
-                        .padding(Theme.padding)
+            VStack(alignment: .leading, spacing: 12) {
+                if quickNotesManager.notes.isEmpty {
+                    // Empty state styled as a card for consistency
+                    HStack {
+                        Text("No notes. Click + to add one.")
+                            .font(.system(size: 14))
+                            .foregroundColor(Theme.textSecondary)
+                        Spacer()
+                    }
+                    .padding(Theme.padding)
+                    .background(Theme.cardBackground)
+                    .cornerRadius(Theme.cornerRadius)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.cornerRadius)
+                            .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                    )
                 } else {
-                    ForEach(notesManager.notes) { note in
+                    ForEach(quickNotesManager.notes) { note in
                         QuickNoteRow(
                             note: note,
-                            onComplete: { notesManager.completeNote(id: note.id) }
+                            onComplete: { quickNotesManager.deleteNote(id: note.id) }
                         )
-                        
-                        if note.id != notesManager.notes.last?.id {
-                            Divider()
-                                .background(Color.white.opacity(0.1))
-                        }
                     }
                 }
             }
-            .background(Theme.cardBackground)
-            .cornerRadius(Theme.cornerRadius)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.cornerRadius)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
-            )
         }
         .sheet(isPresented: $isShowingAddNote) {
             VStack(alignment: .leading, spacing: 16) {
@@ -80,7 +113,7 @@ struct QuickNotesBlock: View {
                     
                     Button(action: {
                         if !newNoteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            notesManager.addNote(newNoteText)
+                            quickNotesManager.addNote(newNoteText)
                         }
                         isShowingAddNote = false
                     }) {
@@ -127,6 +160,7 @@ struct QuickNoteRow: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Main Content Area
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "pencil.and.outline")
                     .foregroundColor(.yellow)
@@ -138,30 +172,21 @@ struct QuickNoteRow: View {
                     .italic()
                     .foregroundColor(.white)
                     .lineSpacing(4)
+                    .lineLimit(2)
+                    .truncationMode(.tail)
                     .fixedSize(horizontal: false, vertical: true)
                 
                 Spacer()
-                
-                if isHovering {
-                    Button(action: onComplete) {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(Theme.textSecondary)
-                            .padding(6)
-                            .background(Color.white.opacity(0.05))
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .help("Mark as completed")
-                    .padding(.top, -2)
-                }
             }
-            .padding(.bottom, 4)
+            // Reserve space for the checkmark overlay so text doesn't run under it
+            .padding(.trailing, 32)
+            .padding(16)
             
             Divider()
                 .frame(height: 0.5)
                 .background(Color.white.opacity(0.04))
             
+            // Footer Area
             HStack {
                 Text(timeString(for: note.lastUpdated))
                     .font(.system(size: 11))
@@ -169,10 +194,35 @@ struct QuickNoteRow: View {
                 
                 Spacer()
             }
-            .padding(.top, 12)
+            .padding(12)
+            .background(Color.white.opacity(0.02)) // Subtle footer contrast
         }
-        .padding(16)
-        .background(isHovering ? Color.white.opacity(0.03) : Color.clear)
+        .background(Theme.cardBackground)
+        .cornerRadius(Theme.cornerRadius)
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.cornerRadius)
+                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+        )
+        // Checkmark Overlay - Positioned relative to the whole card, but visually aligned top-right
+        .overlay(
+            Group {
+                if isHovering {
+                    Button(action: onComplete) {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(Theme.textSecondary)
+                            .padding(8)
+                            .background(Color.white.opacity(0.1))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .help("Mark as completed")
+                    .padding(.top, 12)
+                    .padding(.trailing, 12)
+                }
+            },
+            alignment: .topTrailing
+        )
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.2)) {
                 isHovering = hovering

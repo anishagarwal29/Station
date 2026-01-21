@@ -19,7 +19,7 @@ struct MainTabView: View {
             
             PlaceholderView(title: "Notes", icon: "note.text")
                 .tabItem {
-                    Label("Notes", systemImage: "pencil.and.outline")
+                    Label("Notes", systemImage: "note.text")
                 }
                 .tag(2)
             

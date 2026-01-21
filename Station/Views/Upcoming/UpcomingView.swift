@@ -2,8 +2,73 @@ import SwiftUI
 
 struct UpcomingView: View {
     @EnvironmentObject var upcomingManager: UpcomingManager
+    @EnvironmentObject var calendarManager: CalendarManager
     @State private var isShowingAddSheet = false
     @State private var itemToEdit: UpcomingItem?
+    
+    // Unified display item that can represent both manual items and calendar events
+    struct UnifiedUpcomingItem: Identifiable {
+        let id: String
+        let title: String
+        let date: Date
+        let description: String
+        let category: UpcomingItem.UpcomingCategory
+        let isUrgent: Bool
+        let includeTime: Bool
+        let isCalendarEvent: Bool
+        let originalItemId: UUID?
+    }
+    
+    var allUpcomingItems: [UnifiedUpcomingItem] {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        
+        var unified: [UnifiedUpcomingItem] = []
+        var seenCalendarEventIDs = Set<String>() // Track calendar event IDs to prevent duplicates
+        
+        // 1. Manual Items (from today onwards, excluding cleared alerts)
+        let relevantManualItems = upcomingManager.items.filter { item in
+            item.dueDate >= startOfToday && !upcomingManager.clearedAlertIDs.contains(item.id.uuidString)
+        }
+        
+        for item in relevantManualItems {
+            unified.append(UnifiedUpcomingItem(
+                id: "manual_\(item.id.uuidString)",
+                title: item.title,
+                date: item.dueDate,
+                description: item.description,
+                category: item.category,
+                isUrgent: item.isUrgent,
+                includeTime: item.includeTime,
+                isCalendarEvent: false,
+                originalItemId: item.id
+            ))
+        }
+        
+        // 2. Calendar Events (from today onwards) - with deduplication
+        let relevantCalendarEvents = calendarManager.events.filter { $0.startDate >= startOfToday }
+        
+        for event in relevantCalendarEvents {
+            // Deduplicate: Only add if we haven't seen this calendar event ID before
+            guard !seenCalendarEventIDs.contains(event.id) else { continue }
+            seenCalendarEventIDs.insert(event.id)
+            
+            unified.append(UnifiedUpcomingItem(
+                id: "calendar_\(event.id)",
+                title: event.title,
+                date: event.startDate,
+                description: event.location ?? "",
+                category: .event,
+                isUrgent: false,
+                includeTime: true,
+                isCalendarEvent: true,
+                originalItemId: nil
+            ))
+        }
+        
+        // Sort strictly by date/time
+        return unified.sorted { $0.date < $1.date }
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -33,7 +98,7 @@ struct UpcomingView: View {
             .padding(.bottom, 24)
             
             ScrollView {
-                if upcomingManager.items.isEmpty {
+                if allUpcomingItems.isEmpty {
                     VStack(spacing: 16) {
                         Image(systemName: "calendar.badge.plus")
                             .font(.system(size: 40))
@@ -54,18 +119,21 @@ struct UpcomingView: View {
                     .padding(.top, 60)
                 } else {
                     VStack(spacing: 12) {
-                        // Filter out items that have been cleared via Alerts
-                        // Do NOT filter out past items based on time, as they must remain visible until dismissed/cleared
-                        // (UpcomingManager handles the hard 15m expiration)
-                        let displayItems = upcomingManager.items.filter { item in
-                            !upcomingManager.clearedAlertIDs.contains(item.id)
-                        }
-                        
-                        ForEach(displayItems) { item in
-                            UpcomingItemRow(
+                        ForEach(allUpcomingItems) { item in
+                            UnifiedUpcomingItemRow(
                                 item: item,
-                                onEdit: { itemToEdit = item },
-                                onDelete: { upcomingManager.deleteItem(id: item.id) }
+                                onEdit: {
+                                    if !item.isCalendarEvent, let originalId = item.originalItemId {
+                                        if let originalItem = upcomingManager.items.first(where: { $0.id == originalId }) {
+                                            itemToEdit = originalItem
+                                        }
+                                    }
+                                },
+                                onDelete: {
+                                    if !item.isCalendarEvent, let originalId = item.originalItemId {
+                                        upcomingManager.deleteItem(id: originalId)
+                                    }
+                                }
                             )
                         }
                     }
@@ -88,8 +156,8 @@ struct UpcomingView: View {
     }
 }
 
-struct UpcomingItemRow: View {
-    let item: UpcomingItem
+struct UnifiedUpcomingItemRow: View {
+    let item: UpcomingView.UnifiedUpcomingItem
     let onEdit: () -> Void
     let onDelete: () -> Void
     
@@ -97,7 +165,7 @@ struct UpcomingItemRow: View {
     
     var body: some View {
         HStack(spacing: 16) {
-            // Category Icon (Keep strict 44x44 size)
+            // Category Icon
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
                     .fill(item.category.color.opacity(0.1))
@@ -109,7 +177,7 @@ struct UpcomingItemRow: View {
             }
             
             VStack(alignment: .leading, spacing: 4) {
-                // Top Row: Title + Urgent Badge + Type Badge
+                // Top Row: Title + Badges
                 HStack(spacing: 8) {
                     Text(item.title)
                         .font(.system(size: 16, weight: .semibold))
@@ -126,13 +194,28 @@ struct UpcomingItemRow: View {
                     
                     Spacer()
                     
-                    Text(item.category.rawValue)
-                        .font(.system(size: 10, weight: .bold))
+                    // Calendar badge or category badge
+                    if item.isCalendarEvent {
+                        HStack(spacing: 4) {
+                            Image(systemName: "calendar")
+                                .font(.system(size: 9))
+                            Text("Calendar")
+                                .font(.system(size: 10, weight: .bold))
+                        }
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color.white.opacity(0.05))
-                        .foregroundColor(Theme.textSecondary)
+                        .background(Theme.accentBlue.opacity(0.15))
+                        .foregroundColor(Theme.accentBlue)
                         .cornerRadius(6)
+                    } else {
+                        Text(item.category.rawValue)
+                            .font(.system(size: 10, weight: .bold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.05))
+                            .foregroundColor(Theme.textSecondary)
+                            .cornerRadius(6)
+                    }
                 }
                 
                 if !item.description.isEmpty {
@@ -142,16 +225,16 @@ struct UpcomingItemRow: View {
                         .lineLimit(1)
                 }
                 
-                // Bottom Row: Date (Left) + Actions (Right)
+                // Bottom Row: Date + Actions
                 HStack {
-                    Text(formatDate(item.dueDate, includeTime: item.includeTime))
+                    Text(formatDate(item.date, includeTime: item.includeTime))
                         .font(.system(size: 14))
                         .foregroundColor(Theme.textSecondary)
                     
                     Spacer()
                     
-                    // Hover Actions
-                    if isHovering {
+                    // Hover Actions (only for manual items)
+                    if isHovering && !item.isCalendarEvent {
                         HStack(spacing: 8) {
                             Button(action: onEdit) {
                                 Image(systemName: "pencil")

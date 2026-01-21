@@ -20,6 +20,7 @@ struct UpcomingBlock: View {
         guard let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) else { return [] }
         
         var displayed: [UpcomingDisplayItem] = []
+        var seenCalendarEventIDs = Set<String>() // Track calendar event IDs to prevent duplicates
         
         // 1. Manual Items (From start of tomorrow onwards)
         let relevantTasks = upcomingManager.items.filter { $0.dueDate >= startOfTomorrow }
@@ -34,9 +35,13 @@ struct UpcomingBlock: View {
             ))
         }
         
-        // 2. Calendar Events (From start of tomorrow onwards)
+        // 2. Calendar Events (From start of tomorrow onwards) - with deduplication
         let relevantEvents = calendarManager.events.filter { $0.startDate >= startOfTomorrow }
         for event in relevantEvents {
+            // Deduplicate: Only add if we haven't seen this calendar event ID before
+            guard !seenCalendarEventIDs.contains(event.id) else { continue }
+            seenCalendarEventIDs.insert(event.id)
+            
             displayed.append(UpcomingDisplayItem(
                 id: "cal_\(event.id)",
                 title: event.title,
