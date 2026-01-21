@@ -2,6 +2,40 @@ import SwiftUI
 
 struct HeaderView: View {
     @StateObject private var dateManager = DateManager()
+    @EnvironmentObject var calendarManager: CalendarManager
+    
+    private var schoolStatus: (text: String, color: Color) {
+        let now = Date()
+        let calendar = Calendar.current
+        
+        // Filter for today's events only
+        let todaysEvents = calendarManager.events.filter { calendar.isDateInToday($0.startDate) }
+        
+        if todaysEvents.isEmpty {
+            return ("NO SCHOOL TODAY", .gray)
+        }
+        
+        // Check if currently in session
+        let isInSession = todaysEvents.contains { event in
+            now >= event.startDate && now <= event.endDate
+        }
+        
+        if isInSession {
+            return ("IN SESSION", .green)
+        }
+        
+        // Check if school is over (all events have ended)
+        let isSchoolOver = todaysEvents.allSatisfy { event in
+            now > event.endDate
+        }
+        
+        if isSchoolOver {
+            return ("SCHOOL OVER", .gray)
+        }
+        
+        // If has classes today, not in session, and not over -> Break
+        return ("BREAK", .yellow)
+    }
     
     var body: some View {
         HStack {
@@ -25,14 +59,15 @@ struct HeaderView: View {
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(Theme.textSecondary)
                 
+                let status = schoolStatus
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(Color.green)
+                        .fill(status.color)
                         .frame(width: 8, height: 8)
                     
-                    Text("IN SESSION")
+                    Text(status.text)
                         .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(Color.green)
+                        .foregroundColor(status.color)
                 }
             }
         }
