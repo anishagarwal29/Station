@@ -49,17 +49,27 @@ class CalendarManager: ObservableObject {
     func fetchEvents() {
         let calendar = Calendar.current
         let startOfDay = calendar.startOfDay(for: Date())
-        let endOfDay = calendar.date(byAdding: .day, value: 1, to: startOfDay)!
+        // Fetch next 30 days to cover upcoming views
+        let endOfSearch = calendar.date(byAdding: .day, value: 30, to: startOfDay)!
         
         // Filter for specific academic calendars
         let allCalendars = eventStore.calendars(for: .event)
+        
+        print("DEBUG: All Calendars found: \(allCalendars.map { $0.title })")
+        
+        // Relaxing filter for debugging - if strict "Studying"/"Exams" is failing, we might see why.
         let academicCalendars = allCalendars.filter { calendar in
             let title = calendar.title.lowercased()
             return title == "studying" || title == "exams"
         }
         
-        let predicate = eventStore.predicateForEvents(withStart: startOfDay, end: endOfDay, calendars: academicCalendars)
+        print("DEBUG: Academic Calendars filtered: \(academicCalendars.map { $0.title })")
+        
+        // NOTE: If academicCalendars is empty, passing nil fetches from ALL calendars.
+        let predicate = eventStore.predicateForEvents(withStart: startOfDay, end: endOfSearch, calendars: academicCalendars.isEmpty ? nil : academicCalendars) 
+        
         let ekEvents = eventStore.events(matching: predicate)
+        print("DEBUG: Events fetched count: \(ekEvents.count)")
         
         self.events = ekEvents
             .filter { !$0.isAllDay } // We only want classes/scheduled events

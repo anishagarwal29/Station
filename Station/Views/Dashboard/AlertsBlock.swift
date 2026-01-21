@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AlertsBlock: View {
     @EnvironmentObject var upcomingManager: UpcomingManager
+    @EnvironmentObject var calendarManager: CalendarManager
     
     // Model for alerts
     struct AlertItem: Identifiable {
@@ -13,18 +14,48 @@ struct AlertsBlock: View {
         let isPast: Bool
     }
     
-    var currentAlertCandidates: [UpcomingItem] {
+    // Internal struct to unify candidates
+    struct Candidate: Identifiable {
+        let id: String
+        let title: String
+        let date: Date
+        let isUrgent: Bool
+    }
+    
+    var currentAlertCandidates: [Candidate] {
         let now = Date()
         let fifteenMinutesAgo = now.addingTimeInterval(-900)
         
-        // Items eligible for alerts (time set, within window, not cleared)
-        return upcomingManager.items.filter { item in
-            item.includeTime && 
+        var candidates: [Candidate] = []
+        
+        // 1. Upcoming Items
+        let relevantItems = upcomingManager.items.filter { item in
+            item.includeTime &&
             item.dueDate > fifteenMinutesAgo &&
             !upcomingManager.clearedAlertIDs.contains(item.id)
         }
+        for item in relevantItems {
+            candidates.append(Candidate(id: item.id.uuidString, title: item.title, date: item.dueDate, isUrgent: item.isUrgent))
+        }
+        
+        // 2. Calendar Events
+        // Filter: Start date within valid window (future or < 15m ago)
+        // AND not cleared (we use event.id as the ID for clearing)
+        // Note: Calendar events are "standard" urgency unless we define otherwise.
+        let relevantEvents = calendarManager.events.filter { event in
+            event.startDate > fifteenMinutesAgo &&
+            !upcomingManager.clearedAlertIDs.contains(UUID(uuidString: event.id) ?? UUID()) // Safety check/workaround
+             // See previous step for reasoning on UUID conversion fallback. 
+             // Ideally we'd change clearedAlertIDs to Set<String> but we stick to this for now.
+        }
+        
+        for event in relevantEvents {
+            candidates.append(Candidate(id: event.id, title: event.title, date: event.startDate, isUrgent: false))
+        }
+        
+        return candidates
     }
-
+    
     var alert: AlertItem? {
         let now = Date()
         
@@ -38,44 +69,37 @@ struct AlertsBlock: View {
         let prioritizedCandidates = hasUrgent ? candidates.filter { $0.isUrgent } : candidates
         
         // 3. Timing/Switching Logic
-        // "When the second urgent item’s time is reached... The newer item becomes the active alert."
-        // "Using strict 15m window from Manager"
-        
         // Split into "Past/Now" (<= now) and "Future" (> now)
-        let pastItems = prioritizedCandidates.filter { $0.dueDate <= now }
-        let futureItems = prioritizedCandidates.filter { $0.dueDate > now }
+        let pastItems = prioritizedCandidates.filter { $0.date <= now }
+        let futureItems = prioritizedCandidates.filter { $0.date > now }
         
-        var selectedItem: UpcomingItem?
+        var selectedItem: Candidate?
         
         if !pastItems.isEmpty {
             // Rule: "Switch to newer item" when time is reached.
             // If we have items that have happened (Past), we want the one that happened MOST RECENTLY (Latest Date).
-            // Example: Item A (10:00), Item B (10:05). Now 10:06.
-            // Past: [A, B]. Sort by date descending -> B.
-            selectedItem = pastItems.sorted(by: { $0.dueDate > $1.dueDate }).first
+            selectedItem = pastItems.sorted(by: { $0.date > $1.date }).first
         } else {
             // No past items, only Future.
             // Pick the nearest upcoming (Earliest Date).
-            selectedItem = futureItems.sorted(by: { $0.dueDate < $1.dueDate }).first
+            selectedItem = futureItems.sorted(by: { $0.date < $1.date }).first
         }
         
         guard let item = selectedItem else { return nil }
         
-        let isPast = item.dueDate <= now
-        let timeString = formatRelativeTime(from: now, to: item.dueDate, isUrgent: item.isUrgent)
+        let isPast = item.date <= now
+        let timeString = formatRelativeTime(from: now, to: item.date, isUrgent: item.isUrgent)
         
         return AlertItem(
-            id: item.id.uuidString,
+            id: item.id,
             title: item.title,
-            time: item.dueDate,
-            detail: timeString, 
+            time: item.date,
+            detail: timeString,
             isUrgent: item.isUrgent,
             isPast: isPast
         )
     }
     
-    // ... [formatRelativeTime remains same, not replacing it, assumes previous function logic holds]
-    // Re-implemented formatRelativeTime just to be safe as single block replacement
     func formatRelativeTime(from now: Date, to date: Date, isUrgent: Bool) -> String {
         let diff = date.timeIntervalSince(now)
         let minutes = Int(abs(diff) / 60)

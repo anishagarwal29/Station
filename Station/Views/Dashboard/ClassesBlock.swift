@@ -21,7 +21,9 @@ struct ClassesBlock: View {
             }
             
             VStack(spacing: 12) {
-                if calendarManager.events.isEmpty {
+                let todaysEvents = calendarManager.events.filter { Calendar.current.isDateInToday($0.startDate) }
+                
+                if todaysEvents.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "calendar.badge.exclamationmark")
                             .font(.system(size: 32))
@@ -42,8 +44,8 @@ struct ClassesBlock: View {
                     .background(Theme.cardBackground)
                     .cornerRadius(Theme.cornerRadius)
                 } else {
-                    ForEach(Array(calendarManager.events.enumerated()), id: \.element.id) { index, event in
-                        let status = getEventStatus(event: event, allEvents: calendarManager.events)
+                    ForEach(Array(todaysEvents.enumerated()), id: \.element.id) { index, event in
+                        let status = getEventStatus(event: event, allEvents: todaysEvents)
                         ClassCard(
                             title: event.title,
                             time: event.timeString,
