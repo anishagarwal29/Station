@@ -1,5 +1,5 @@
 import Foundation
-internal import EventKit
+import EventKit
 import Combine
 
 struct CalendarEvent: Identifiable {
@@ -19,8 +19,19 @@ struct CalendarEvent: Identifiable {
 class CalendarManager: ObservableObject {
     @Published var events: [CalendarEvent] = []
     @Published var permissionStatus: EKAuthorizationStatus = .notDetermined
+    @Published var availableCalendars: [EKCalendar] = []
     
     private let eventStore = EKEventStore()
+    
+    init() {
+        NotificationCenter.default.addObserver(self, selector: #selector(storeChanged), name: .EKEventStoreChanged, object: nil)
+    }
+    
+    @objc private func storeChanged() {
+        DispatchQueue.main.async {
+            self.fetchEvents()
+        }
+    }
     
     // READ-ONLY: We request full access because iOS/macOS requires it to READ events.
     // We strictly DO NOT modify, create, or delete any events.
@@ -52,36 +63,65 @@ class CalendarManager: ObservableObject {
         // Fetch next 30 days to cover upcoming views
         let endOfSearch = calendar.date(byAdding: .day, value: 30, to: startOfDay)!
         
-        // Filter for specific academic calendars
+        // 1. Fetch and publish available calendars so Settings can list them
         let allCalendars = eventStore.calendars(for: .event)
         
-        print("DEBUG: All Calendars found: \(allCalendars.map { $0.title })")
-        
-        // Relaxing filter for debugging - if strict "Studying"/"Exams" is failing, we might see why.
-        let academicCalendars = allCalendars.filter { calendar in
-            let title = calendar.title.lowercased()
-            return title == "studying" || title == "exams"
+        // Deduplicate
+        let unique = Dictionary(grouping: allCalendars, by: { $0.calendarIdentifier })
+            .compactMap { $0.value.first }
+            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            
+        DispatchQueue.main.async {
+            self.availableCalendars = unique
         }
         
-        print("DEBUG: Academic Calendars filtered: \(academicCalendars.map { $0.title })")
+        // 2. Filter based on SettingsManager selection
+        // "Only events from toggled calendars should appear"
+        let selectedIDs = SettingsManager.shared.selectedCalendarIDs
+        let calendarsToFetch = allCalendars.filter { selectedIDs.contains($0.calendarIdentifier) }
         
-        // NOTE: If academicCalendars is empty, passing nil fetches from ALL calendars.
-        let predicate = eventStore.predicateForEvents(withStart: startOfDay, end: endOfSearch, calendars: academicCalendars.isEmpty ? nil : academicCalendars) 
+        // If nothing is toggled, showing nothing is the correct behavior per constraints.
+        // However, for UX, if NO calendars are selected effectively (empty set), we return empty.
+        if calendarsToFetch.isEmpty {
+            DispatchQueue.main.async {
+                self.events = []
+            }
+            return
+        }
+        
+        let predicate = eventStore.predicateForEvents(withStart: startOfDay, end: endOfSearch, calendars: calendarsToFetch)
         
         let ekEvents = eventStore.events(matching: predicate)
-        print("DEBUG: Events fetched count: \(ekEvents.count)")
         
-        self.events = ekEvents
-            .filter { !$0.isAllDay } // We only want classes/scheduled events
-            .map { ekEvent in
-                CalendarEvent(
-                    id: ekEvent.eventIdentifier,
-                    title: ekEvent.title ?? "Untitled",
-                    startDate: ekEvent.startDate,
-                    endDate: ekEvent.endDate,
-                    location: ekEvent.location
-                )
+        // Deduplicate events (Title + Date)
+        // This handles cases where the same logical event exists in multiple calendars (e.g. iCloud + Google)
+        var seenKeys = Set<String>()
+        var uniqueEvents: [EKEvent] = []
+        
+        // Sort by startDate to ensure order
+        for event in ekEvents.sorted(by: { $0.startDate < $1.startDate }) {
+            // Create a unique key based on Title and Start Time
+            let key = "\(event.title ?? "")|\(Int(event.startDate.timeIntervalSince1970))"
+            
+            if !seenKeys.contains(key) {
+                seenKeys.insert(key)
+                uniqueEvents.append(event)
             }
-            .sorted { $0.startDate < $1.startDate }
+        }
+        
+        DispatchQueue.main.async {
+            self.events = uniqueEvents
+                .filter { !$0.isAllDay } // We only want classes/scheduled events
+                .map { ekEvent in
+                    CalendarEvent(
+                        id: ekEvent.eventIdentifier,
+                        title: ekEvent.title ?? "Untitled",
+                        startDate: ekEvent.startDate,
+                        endDate: ekEvent.endDate,
+                        location: ekEvent.location
+                    )
+                }
+                .sorted { $0.startDate < $1.startDate }
+        }
     }
 }

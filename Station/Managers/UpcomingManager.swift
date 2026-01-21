@@ -48,6 +48,11 @@ class UpcomingManager: ObservableObject {
         sortAndCleanItems()
     }
     
+    func resetAllManualItems() {
+        items = []
+        clearedAlertIDs = []
+    }
+    
     private func sortAndCleanItems() {
         // Remove items that are past due, with a 15-minute grace period
         // This prevents items added "now" from disappearing immediately        // Remove items that are past due

@@ -1,5 +1,5 @@
 import SwiftUI
-internal import EventKit
+import EventKit
 
 struct ClassesBlock: View {
     @EnvironmentObject var calendarManager: CalendarManager

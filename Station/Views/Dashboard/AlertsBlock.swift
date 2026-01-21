@@ -14,6 +14,8 @@ struct AlertsBlock: View {
         let isPast: Bool
     }
     
+    @ObservedObject var settings = SettingsManager.shared
+    
     // Internal struct to unify candidates
     struct Candidate: Identifiable {
         let id: String
@@ -24,35 +26,46 @@ struct AlertsBlock: View {
     
     var currentAlertCandidates: [Candidate] {
         let now = Date()
-        let fifteenMinutesAgo = now.addingTimeInterval(-900)
+        let showWindowSeconds = settings.alertTiming.secondsBefore
+        let expireWindowSeconds = settings.autoDismissAlerts.seconds
+        
+        // Window thresholds
+        let showThreshold = now.addingTimeInterval(showWindowSeconds)
+        let expireThreshold = now.addingTimeInterval(-expireWindowSeconds)
         
         var candidates: [Candidate] = []
         var seenCalendarEventIDs = Set<String>() // Track calendar event IDs to prevent duplicates
         
         // 1. Upcoming Items
+        // Logic: Include time is mandatory for alerts
+        // Date must be within the alert window:
+        // <= showThreshold (Time to show it)
+        // >= expireThreshold (Hasn't auto-dismissed yet)
         let relevantItems = upcomingManager.items.filter { item in
             item.includeTime &&
-            item.dueDate > fifteenMinutesAgo &&
-            !upcomingManager.clearedAlertIDs.contains(item.id.uuidString)
+            !upcomingManager.clearedAlertIDs.contains(item.id.uuidString) &&
+            item.dueDate <= showThreshold &&
+            item.dueDate >= expireThreshold
         }
         for item in relevantItems {
             candidates.append(Candidate(id: item.id.uuidString, title: item.title, date: item.dueDate, isUrgent: item.isUrgent))
         }
         
         // 2. Calendar Events - with deduplication
-        // Filter: Start date within valid window (future or < 15m ago)
-        // AND not cleared (we use event.id as the ID for clearing)
-        let relevantEvents = calendarManager.events.filter { event in
-            event.startDate > fifteenMinutesAgo &&
-            !upcomingManager.clearedAlertIDs.contains(event.id)
-        }
-        
-        for event in relevantEvents {
-            // Deduplicate: Only add if we haven't seen this calendar event ID before
-            guard !seenCalendarEventIDs.contains(event.id) else { continue }
-            seenCalendarEventIDs.insert(event.id)
+        if settings.includeCalendarInAlerts {
+            let relevantEvents = calendarManager.events.filter { event in
+                !upcomingManager.clearedAlertIDs.contains(event.id) &&
+                event.startDate <= showThreshold &&
+                event.startDate >= expireThreshold
+            }
             
-            candidates.append(Candidate(id: event.id, title: event.title, date: event.startDate, isUrgent: false))
+            for event in relevantEvents {
+                // Deduplicate: Only add if we haven't seen this calendar event ID before
+                guard !seenCalendarEventIDs.contains(event.id) else { continue }
+                seenCalendarEventIDs.insert(event.id)
+                
+                candidates.append(Candidate(id: event.id, title: event.title, date: event.startDate, isUrgent: false))
+            }
         }
         
         return candidates
@@ -104,16 +117,29 @@ struct AlertsBlock: View {
     
     func formatRelativeTime(from now: Date, to date: Date, isUrgent: Bool) -> String {
         let diff = date.timeIntervalSince(now)
-        let minutes = Int(abs(diff) / 60)
+        let absDiff = abs(diff)
+        let minutes = Int(absDiff / 60)
         
         let urgentPrefix = isUrgent ? "URGENT · " : ""
         
         if diff > 0 {
             // Future
-            return "\(urgentPrefix)In \(minutes) min"
+            if minutes < 60 {
+                return "\(urgentPrefix)In \(minutes) min"
+            } else {
+                let hours = Int(absDiff / 3600)
+                let suffix = hours == 1 ? "hr" : "hrs"
+                return "\(urgentPrefix)In \(hours) \(suffix)"
+            }
         } else {
             // Past
-            return "\(urgentPrefix)\(minutes) min ago"
+            if minutes < 60 {
+                return "\(urgentPrefix)\(minutes) min ago"
+            } else {
+                let hours = Int(absDiff / 3600)
+                let suffix = hours == 1 ? "hr" : "hrs"
+                return "\(urgentPrefix)\(hours) \(suffix) ago"
+            }
         }
     }
     

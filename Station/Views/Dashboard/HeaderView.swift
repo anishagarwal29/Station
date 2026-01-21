@@ -12,7 +12,7 @@ struct HeaderView: View {
         let todaysEvents = calendarManager.events.filter { calendar.isDateInToday($0.startDate) }
         
         if todaysEvents.isEmpty {
-            return ("NO SCHOOL TODAY", .gray)
+            return ("INACTIVE", .gray)
         }
         
         // Check if currently in session

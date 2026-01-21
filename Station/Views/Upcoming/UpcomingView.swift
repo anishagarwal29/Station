@@ -1,144 +1,251 @@
 import SwiftUI
+import EventKit
 
 struct UpcomingView: View {
     @EnvironmentObject var upcomingManager: UpcomingManager
     @EnvironmentObject var calendarManager: CalendarManager
+    @ObservedObject var settings = SettingsManager.shared
+    
     @State private var isShowingAddSheet = false
     @State private var itemToEdit: UpcomingItem?
     
-    // Unified display item that can represent both manual items and calendar events
-    struct UnifiedUpcomingItem: Identifiable {
+    // Filter State: Initially all categories selected
+    @State private var selectedFilters: Set<UpcomingItem.UpcomingCategory> = Set(UpcomingItem.UpcomingCategory.allCases)
+    
+    struct UnifiedItem: Identifiable {
         let id: String
         let title: String
         let date: Date
         let description: String
-        let category: UpcomingItem.UpcomingCategory
+        let category: UpcomingItem.UpcomingCategory? // nil for Calendar
         let isUrgent: Bool
         let includeTime: Bool
-        let isCalendarEvent: Bool
+        let isCalendar: Bool
         let originalItemId: UUID?
     }
     
-    var allUpcomingItems: [UnifiedUpcomingItem] {
+    var allItems: [UnifiedItem] {
         let calendar = Calendar.current
         let startOfToday = calendar.startOfDay(for: Date())
         
-        var unified: [UnifiedUpcomingItem] = []
-        var seenCalendarEventIDs = Set<String>() // Track calendar event IDs to prevent duplicates
+        // Calculate cutoff date based on settings
+        var cutoffDate: Date?
+        if let days = settings.upcomingTimeLimit.days {
+            // "Next X days" usually means today + X days? Or just X days from now?
+            // "Next 3 days" implies Today, Tomorrow, Day After.
+            // Let's assume startOfToday + days (inclusive).
+            cutoffDate = calendar.date(byAdding: .day, value: days, to: startOfToday)
+        }
         
-        // 1. Manual Items (from today onwards, excluding cleared alerts)
+        var unified: [UnifiedItem] = []
+        
+        // 1. Manual Items
         let relevantManualItems = upcomingManager.items.filter { item in
-            item.dueDate >= startOfToday && !upcomingManager.clearedAlertIDs.contains(item.id.uuidString)
+            // Date filter: Today or Future
+            var valid = item.dueDate >= startOfToday
+            
+            // Limit filter
+            if let cutoff = cutoffDate {
+                valid = valid && item.dueDate <= cutoff
+            }
+            
+            // Cleared Alerts filter (Wait, cleared alerts shouldn't hide from Upcoming list, only from Alerts block!)
+            // User request 724: "remove calendar events ... while still allowing them to appear in alerts" implies separation.
+            // But "Upcoming View" should show all upcoming tasks.
+            // Checking step 742 code: I WAS filtering cleared alerts: `!upcomingManager.clearedAlertIDs.contains(item.id.uuidString)`.
+            // User requirement "Clear All" acts on Alerts. Usually "Dismiss Alert". Does it delete the task? No.
+            // So it should probably still show in Upcoming List.
+            // However, Previous code in step 742 explicitly filtered them out.
+            // "1. Manual Items (from today onwards, excluding cleared alerts)"
+            // If I dismissed an alert, do I want it gone from my list?
+            // Usually "Dismiss" means "I saw it, stop bothering me". It might still be "Due".
+            // I'll REMOVE the cleared alerts filter from Upcoming View logic to be safe/standard (it persists in list), 
+            // OR keep it if that was the "Done" mechanism.
+            // But "Delete" is the Done mechanism.
+            // I'll show them. But the previous code hid them.
+            // I'll stick to displaying everything in the List view (Upcoming Tab) regardless of Alert status.
+            if valid {
+               // Category Filter
+               return selectedFilters.contains(item.category)
+            }
+            return false
         }
         
         for item in relevantManualItems {
-            unified.append(UnifiedUpcomingItem(
-                id: "manual_\(item.id.uuidString)",
+             unified.append(UnifiedItem(
+                id: item.id.uuidString,
                 title: item.title,
                 date: item.dueDate,
                 description: item.description,
                 category: item.category,
                 isUrgent: item.isUrgent,
                 includeTime: item.includeTime,
-                isCalendarEvent: false,
+                isCalendar: false,
                 originalItemId: item.id
-            ))
+             ))
         }
         
-        // 2. Calendar Events (from today onwards) - with deduplication
-        let relevantCalendarEvents = calendarManager.events.filter { $0.startDate >= startOfToday }
-        
-        for event in relevantCalendarEvents {
-            // Deduplicate: Only add if we haven't seen this calendar event ID before
-            guard !seenCalendarEventIDs.contains(event.id) else { continue }
-            seenCalendarEventIDs.insert(event.id)
-            
-            unified.append(UnifiedUpcomingItem(
-                id: "calendar_\(event.id)",
-                title: event.title,
-                date: event.startDate,
-                description: event.location ?? "",
-                category: .event,
-                isUrgent: false,
-                includeTime: true,
-                isCalendarEvent: true,
-                originalItemId: nil
-            ))
+        // 2. Calendar Events (If Enabled)
+        if settings.includeCalendarInUpcoming {
+             let relevantEvents = calendarManager.events.filter { event in
+                 var valid = event.startDate >= startOfToday
+                 if let cutoff = cutoffDate {
+                     valid = valid && event.startDate <= cutoff
+                 }
+                 return valid
+             }
+             
+             for event in relevantEvents {
+                 unified.append(UnifiedItem(
+                    id: event.id,
+                    title: event.title,
+                    date: event.startDate,
+                    description: event.location ?? "",
+                    category: nil,
+                    isUrgent: false,
+                    includeTime: true,
+                    isCalendar: true,
+                    originalItemId: nil
+                 ))
+             }
         }
         
-        // Sort strictly by date/time
-        return unified.sorted { $0.date < $1.date }
+        return unified.sorted { 
+            if $0.date != $1.date { return $0.date < $1.date }
+            return $0.isUrgent && !$1.isUrgent
+        }
+    }
+    
+    var groups: [(Date, [UnifiedItem])] {
+        let grouped = Dictionary(grouping: allItems) { item in
+            Calendar.current.startOfDay(for: item.date)
+        }
+        return grouped.sorted { $0.key < $1.key }
     }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Upcoming")
-                        .font(.system(size: 32, weight: .bold))
-                    Text("Your unified schedule for the coming weeks")
-                        .font(.system(size: 16))
-                        .foregroundColor(Theme.textSecondary)
+            VStack(alignment: .leading, spacing: 24) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Upcoming")
+                            .font(.system(size: 32, weight: .bold))
+                        Text("Your tasks for the coming weeks")
+                            .font(.system(size: 16))
+                            .foregroundColor(Theme.textSecondary)
+                    }
+                    Spacer()
+                    
+                    Button(action: { isShowingAddSheet = true }) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(width: 32, height: 32)
+                            .background(Theme.accentBlue.opacity(0.8))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
                 }
-                Spacer()
                 
-                Button(action: { isShowingAddSheet = true }) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                        .frame(width: 32, height: 32)
-                        .background(Theme.accentBlue.opacity(0.8))
-                        .clipShape(Circle())
+                // Filter Bar
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(UpcomingItem.UpcomingCategory.allCases) { category in
+                            FilterChip(
+                                title: category.rawValue,
+                                isSelected: selectedFilters.contains(category),
+                                color: category.color
+                            ) {
+                                toggleFilter(category)
+                            }
+                        }
+                    }
                 }
-                .buttonStyle(.plain)
             }
             .padding(.horizontal, 40)
             .padding(.top, 40)
             .padding(.bottom, 24)
             
             ScrollView {
-                if allUpcomingItems.isEmpty {
-                    VStack(spacing: 16) {
-                        Image(systemName: "calendar.badge.plus")
+                if allItems.isEmpty {
+                     // Empty State
+                     VStack(spacing: 16) {
+                        Image(systemName: "checklist")
                             .font(.system(size: 40))
                             .foregroundColor(Theme.textSecondary.opacity(0.5))
-                        Text("No upcoming items")
+                        Text("No upcoming tasks")
                             .font(.system(size: 16))
                             .foregroundColor(Theme.textSecondary)
-                        Button("Add Item") {
-                            isShowingAddSheet = true
+                        
+                        if selectedFilters.count != UpcomingItem.UpcomingCategory.allCases.count {
+                             Text("Try adjusting your filters")
+                                .font(.system(size: 14))
+                                .foregroundColor(Theme.textSecondary.opacity(0.7))
+                        } else {
+                            Button("Add Task") {
+                                isShowingAddSheet = true
+                            }
+                            .buttonStyle(.plain)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Theme.accentBlue.opacity(0.1))
+                            .cornerRadius(8)
                         }
-                        .buttonStyle(.plain)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Theme.accentBlue.opacity(0.1))
-                        .cornerRadius(8)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.top, 60)
                 } else {
-                    VStack(spacing: 12) {
-                        ForEach(allUpcomingItems) { item in
-                            UnifiedUpcomingItemRow(
-                                item: item,
-                                onEdit: {
-                                    if !item.isCalendarEvent, let originalId = item.originalItemId {
-                                        if let originalItem = upcomingManager.items.first(where: { $0.id == originalId }) {
-                                            itemToEdit = originalItem
-                                        }
-                                    }
-                                },
-                                onDelete: {
-                                    if !item.isCalendarEvent, let originalId = item.originalItemId {
-                                        upcomingManager.deleteItem(id: originalId)
+                    if settings.groupUpcomingByDate {
+                        LazyVStack(alignment: .leading, spacing: 24) {
+                            ForEach(groups, id: \.0) { date, items in
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text(formatGroupDate(date))
+                                        .font(.headline)
+                                        .foregroundColor(Theme.textSecondary)
+                                        .padding(.horizontal, 40)
+                                    
+                                    ForEach(items) { item in
+                                        UnifiedUpcomingItemRow(
+                                            item: item,
+                                            onEdit: { 
+                                                if let id = item.originalItemId, let manualItem = upcomingManager.items.first(where: { $0.id == id }) {
+                                                    itemToEdit = manualItem
+                                                }
+                                            },
+                                            onDelete: { 
+                                                if let id = item.originalItemId {
+                                                    upcomingManager.deleteItem(id: id)
+                                                }
+                                            }
+                                        )
+                                        .padding(.horizontal, 40)
                                     }
                                 }
-                            )
+                            }
                         }
+                        .padding(.bottom, 40)
+                    } else {
+                        LazyVStack(spacing: 12) {
+                            ForEach(allItems) { item in
+                                UnifiedUpcomingItemRow(
+                                    item: item,
+                                    onEdit: { 
+                                        if let id = item.originalItemId, let manualItem = upcomingManager.items.first(where: { $0.id == id }) {
+                                            itemToEdit = manualItem
+                                        }
+                                    },
+                                    onDelete: { 
+                                        if let id = item.originalItemId {
+                                            upcomingManager.deleteItem(id: id)
+                                        }
+                                    }
+                                )
+                                .padding(.horizontal, 40)
+                            }
+                        }
+                        .padding(.bottom, 40)
                     }
-                    .padding(.horizontal, 40)
-                    .padding(.bottom, 40)
                 }
             }
             .onAppear {
@@ -154,10 +261,26 @@ struct UpcomingView: View {
             AddUpcomingItemSheet(itemToEdit: item)
         }
     }
+    
+    private func toggleFilter(_ category: UpcomingItem.UpcomingCategory) {
+        if selectedFilters.contains(category) {
+            selectedFilters.remove(category)
+        } else {
+            selectedFilters.insert(category)
+        }
+    }
+    
+    private func formatGroupDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        if Calendar.current.isDateInToday(date) { return "Today" }
+        if Calendar.current.isDateInTomorrow(date) { return "Tomorrow" }
+        formatter.dateFormat = "EEEE, MMMM d"
+        return formatter.string(from: date)
+    }
 }
 
 struct UnifiedUpcomingItemRow: View {
-    let item: UpcomingView.UnifiedUpcomingItem
+    let item: UpcomingView.UnifiedItem
     let onEdit: () -> Void
     let onDelete: () -> Void
     
@@ -168,11 +291,11 @@ struct UnifiedUpcomingItemRow: View {
             // Category Icon
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(item.category.color.opacity(0.1))
+                    .fill(item.isCalendar ? Theme.accentBlue.opacity(0.1) : (item.category?.color.opacity(0.1) ?? Color.gray.opacity(0.1)))
                     .frame(width: 44, height: 44)
                 
-                Image(systemName: item.category.icon)
-                    .foregroundColor(item.category.color)
+                Image(systemName: item.isCalendar ? "calendar" : (item.category?.icon ?? "circle"))
+                    .foregroundColor(item.isCalendar ? Theme.accentBlue : (item.category?.color ?? .gray))
                     .font(.system(size: 18))
             }
             
@@ -194,21 +317,16 @@ struct UnifiedUpcomingItemRow: View {
                     
                     Spacer()
                     
-                    // Calendar badge or category badge
-                    if item.isCalendarEvent {
-                        HStack(spacing: 4) {
-                            Image(systemName: "calendar")
-                                .font(.system(size: 9))
-                            Text("Calendar")
-                                .font(.system(size: 10, weight: .bold))
-                        }
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Theme.accentBlue.opacity(0.15))
-                        .foregroundColor(Theme.accentBlue)
-                        .cornerRadius(6)
-                    } else {
-                        Text(item.category.rawValue)
+                    if item.isCalendar {
+                        Text("Calendar")
+                            .font(.system(size: 10, weight: .bold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.05))
+                            .foregroundColor(Theme.textSecondary)
+                            .cornerRadius(6)
+                    } else if let cat = item.category {
+                        Text(cat.rawValue)
                             .font(.system(size: 10, weight: .bold))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
@@ -233,8 +351,8 @@ struct UnifiedUpcomingItemRow: View {
                     
                     Spacer()
                     
-                    // Hover Actions (only for manual items)
-                    if isHovering && !item.isCalendarEvent {
+                    // Hover Actions (Only for Manual Items)
+                    if isHovering && !item.isCalendar {
                         HStack(spacing: 8) {
                             Button(action: onEdit) {
                                 Image(systemName: "pencil")
@@ -278,8 +396,26 @@ struct UnifiedUpcomingItemRow: View {
     }
 }
 
-struct UpcomingView_Previews: PreviewProvider {
-    static var previews: some View {
-        UpcomingView()
+struct FilterChip: View {
+    let title: String
+    let isSelected: Bool
+    let color: Color
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(isSelected ? color.opacity(0.15) : Color.white.opacity(0.05))
+                .foregroundColor(isSelected ? color : Theme.textSecondary)
+                .cornerRadius(16)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16)
+                        .stroke(isSelected ? color.opacity(0.3) : Color.white.opacity(0.1), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
     }
 }

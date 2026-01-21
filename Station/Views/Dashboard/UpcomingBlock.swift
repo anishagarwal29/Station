@@ -4,6 +4,8 @@ struct UpcomingBlock: View {
     @EnvironmentObject var upcomingManager: UpcomingManager
     @EnvironmentObject var calendarManager: CalendarManager
     
+    @ObservedObject var settings = SettingsManager.shared
+    
     struct UpcomingDisplayItem: Identifiable {
         let id: String
         let title: String
@@ -19,11 +21,24 @@ struct UpcomingBlock: View {
         // "Upcoming → future only" (Tomorrow onwards)
         guard let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) else { return [] }
         
+        // Calculate cutoff date based on settings
+        var cutoffDate: Date?
+        if let days = settings.upcomingTimeLimit.days {
+            cutoffDate = calendar.date(byAdding: .day, value: days, to: startOfTomorrow)
+        }
+        
         var displayed: [UpcomingDisplayItem] = []
         var seenCalendarEventIDs = Set<String>() // Track calendar event IDs to prevent duplicates
         
         // 1. Manual Items (From start of tomorrow onwards)
-        let relevantTasks = upcomingManager.items.filter { $0.dueDate >= startOfTomorrow }
+        let relevantTasks = upcomingManager.items.filter { item in
+            var valid = item.dueDate >= startOfTomorrow
+            if let cutoff = cutoffDate {
+                valid = valid && item.dueDate <= cutoff
+            }
+            return valid
+        }
+        
         for task in relevantTasks {
             displayed.append(UpcomingDisplayItem(
                 id: "task_\(task.id.uuidString)",
@@ -35,21 +50,30 @@ struct UpcomingBlock: View {
             ))
         }
         
-        // 2. Calendar Events (From start of tomorrow onwards) - with deduplication
-        let relevantEvents = calendarManager.events.filter { $0.startDate >= startOfTomorrow }
-        for event in relevantEvents {
-            // Deduplicate: Only add if we haven't seen this calendar event ID before
-            guard !seenCalendarEventIDs.contains(event.id) else { continue }
-            seenCalendarEventIDs.insert(event.id)
+        // 2. Calendar Events (From start of tomorrow onwards, if enabled)
+        if settings.includeCalendarInUpcoming {
+            let relevantEvents = calendarManager.events.filter { event in
+                var valid = event.startDate >= startOfTomorrow
+                if let cutoff = cutoffDate {
+                    valid = valid && event.startDate <= cutoff
+                }
+                return valid
+            }
             
-            displayed.append(UpcomingDisplayItem(
-                id: "cal_\(event.id)",
-                title: event.title,
-                date: event.startDate,
-                detail: event.location, 
-                typeBadge: "Event",
-                isUrgent: false
-            ))
+            for event in relevantEvents {
+                // Deduplicate: Only add if we haven't seen this calendar event ID before
+                guard !seenCalendarEventIDs.contains(event.id) else { continue }
+                seenCalendarEventIDs.insert(event.id)
+                
+                displayed.append(UpcomingDisplayItem(
+                    id: "cal_\(event.id)",
+                    title: event.title,
+                    date: event.startDate,
+                    detail: event.location, 
+                    typeBadge: "Event",
+                    isUrgent: false
+                ))
+            }
         }
         
         // Sort strictly by date/time and take MAX 2
