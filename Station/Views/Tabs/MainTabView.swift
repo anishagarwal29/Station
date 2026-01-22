@@ -10,7 +10,7 @@ struct MainTabView: View {
             Group {
                 if selectedTab == 0 { DashboardView() }
                 else if selectedTab == 1 { UpcomingView() }
-                else if selectedTab == 2 { PlaceholderView(title: "Notes", icon: "note.text") }
+                else if selectedTab == 2 { ResourcesView() }
                 else if selectedTab == 3 { SettingsView() }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -21,7 +21,7 @@ struct MainTabView: View {
             HStack(spacing: 4) {
                 TabButton(icon: "square.grid.2x2.fill", title: "Dashboard", isSelected: selectedTab == 0) { selectedTab = 0 }
                 TabButton(icon: "calendar", title: "Upcoming", isSelected: selectedTab == 1) { selectedTab = 1 }
-                TabButton(icon: "note.text", title: "Notes", isSelected: selectedTab == 2) { selectedTab = 2 }
+                TabButton(icon: "folder.fill", title: "Resources", isSelected: selectedTab == 2) { selectedTab = 2 }
                 TabButton(icon: "gearshape.fill", title: "Settings", isSelected: selectedTab == 3) { selectedTab = 3 }
             }
             .padding(6)
