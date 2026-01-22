@@ -14,12 +14,17 @@
 
 import SwiftUI
 import EventKit
+import Combine
 
 struct UpcomingView: View {
     @EnvironmentObject var upcomingManager: UpcomingManager
     @EnvironmentObject var calendarManager: CalendarManager
     @ObservedObject var settings = SettingsManager.shared
     
+    // State to trigger minute-by-minute updates
+    @State private var currentTime = Date()
+    private let timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
+
     // UI State for Modal Sheet
     @State private var isShowingAddSheet = false
     @State private var itemToEdit: UpcomingItem?
@@ -46,7 +51,7 @@ struct UpcomingView: View {
     // Merges, Filters, and Sorts all items.
     var allItems: [UnifiedItem] {
         let calendar = Calendar.current
-        let startOfToday = calendar.startOfDay(for: Date())
+        let startOfToday = calendar.startOfDay(for: currentTime)
         
         // Calculate cutoff date based on settings ("Next 3 Days")
         var cutoffDate: Date?
@@ -90,7 +95,10 @@ struct UpcomingView: View {
         // 2. Process Calendar Events (If Enabled in Settings)
         if settings.includeCalendarInUpcoming {
              let relevantEvents = calendarManager.events.filter { event in
-                 var valid = event.startDate >= startOfToday
+                 // Filter: Must not have ended yet (implicitly handles "Today" vs "Past")
+                 // And must be within cutoff
+                 var valid = event.endDate > currentTime
+                 
                  if let cutoff = cutoffDate {
                      valid = valid && event.startDate <= cutoff
                  }
@@ -258,6 +266,10 @@ struct UpcomingView: View {
             }
             .onAppear {
                 upcomingManager.refresh()
+                currentTime = Date()
+            }
+            .onReceive(timer) { input in
+                currentTime = input
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
