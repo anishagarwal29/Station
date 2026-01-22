@@ -1,17 +1,37 @@
+/*
+ Station > Views > Resources > ResourcesView.swift
+ -------------------------------------------------
+ PURPOSE:
+ This is the main screen for the Resources tab. It displays your collection of links in a searchable, filterable grid.
+ 
+ LAYOUT STRATEGY:
+ - Vertical Stack (VStack) containing Header -> Search/Filter -> Main Grid.
+ - Uses a "Lazy" Grid for performance (only loads views visible on screen).
+ */
+
 import SwiftUI
 
 struct ResourcesView: View {
+    // @StateObject: We OWN this data object. The view creates it, and it stays alive as long as the view is needed.
     @StateObject private var resourceManager = ResourceManager()
+    
+    // @State: Local UI variables. Changing these triggers a re-render.
     @State private var searchText = ""
     @State private var selectedTag: String? = nil
     @State private var showingAddSheet = false
     
-    // Dynamically derive tags from all items
+    // LOGIC: Dynamically Calculate Tags
+    // We don't store a list of "all valid tags". Instead, we look at all existing items
+    // and extract every unique tag found. This means if you delete the last item with "Math",
+    // the "Math" filter chip automatically disappears. Clean and self-maintaining.
     var allTags: [String] {
         let tags = Set(resourceManager.items.flatMap { $0.tags })
         return tags.sorted()
     }
     
+    // LOGIC: The Filter Pipeline
+    // This is the array the UI actually loops over. It takes the raw full list
+    // and applies 1) Search Text check AND 2) Selected Tag check.
     var filteredItems: [ResourceItem] {
         resourceManager.items.filter { item in
             let matchesSearch = searchText.isEmpty || item.title.localizedCaseInsensitiveContains(searchText)
@@ -20,6 +40,10 @@ struct ResourcesView: View {
         }
     }
     
+    // GRID CONFIGURATION:
+    // .adaptive(minimum: 180): The "Magic" layout.
+    // It tells SwiftUI: "Fit as many columns as you can, but never sqeeze a column smaller than 180pt."
+    // On a wide iMac, you might get 6 columns. On a small MacBook Air, maybe 3.
     let columns = [
         GridItem(.adaptive(minimum: 180), spacing: 16)
     ]
@@ -48,6 +72,7 @@ struct ResourcesView: View {
              
              // Search & Filters
              VStack(spacing: 16) {
+                 // ... (Search Bar code)
                  // Search Bar
                  HStack {
                      Image(systemName: "magnifyingglass")
@@ -93,7 +118,12 @@ struct ResourcesView: View {
                  LazyVGrid(columns: columns, spacing: 16) {
                      ForEach(filteredItems) { item in
                          ResourceCard(item: item) {
+                             // EVENT HANDLER: Opening URLs
+                             // When the "Open" button is clicked:
+                             // 1. We unwrap the safely computed URL (see ResourceItem.swift).
                              if let url = item.url {
+                                 // 2. We ask the macOS Workspace (the OS itself) to open this URL.
+                                 // This launches the default browser (Safari, Chrome) or app associated with the link.
                                  NSWorkspace.shared.open(url)
                              }
                          }
@@ -118,12 +148,16 @@ struct ResourcesView: View {
 // Subview for the Card
 struct ResourceCard: View {
     let item: ResourceItem
+    // Closure: Allows the parent view to define WHAT happens when tapped,
+    // while this view handles HOW it looks and detects the tap.
     let onOpen: () -> Void
+    
     @State private var isHovering = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
              HStack(alignment: .top) {
+                 // ... (Icon logic)
                  Image(systemName: item.iconName)
                      .font(.system(size: 24))
                      .foregroundColor(Theme.accentBlue)
@@ -133,10 +167,13 @@ struct ResourceCard: View {
                  
                  Spacer()
                  
-                 // Mini Tags
+                 // UI: Tag Pills logic
+                 // We only show the first 2 tags to prevent the card from overflowing.
+                 // If there are more, we show a "+X" indicator.
                  HStack(spacing: 4) {
                      ForEach(item.tags.prefix(2), id: \.self) { tag in
                          Text(tag)
+                             // ... styling ...
                              .font(.system(size: 10, weight: .bold))
                              .padding(.horizontal, 6)
                              .padding(.vertical, 2)

@@ -1,21 +1,37 @@
+/*
+ Station > Views > Dashboard > HeaderView.swift
+ ----------------------------------------------
+ PURPOSE:
+ Displays the current Date and the user's "Status" (e.g. "IN SESSION", "BREAK").
+ 
+ LOGIC:
+ - Derives status dynamically from the CalendarManager events.
+ - "Smart" logic determines if you are currently in a class using Date refreshing.
+ */
+
 import SwiftUI
 
 struct HeaderView: View {
+    // Helper to get day/week strings
     @StateObject private var dateManager = DateManager()
+    
+    // We observe the calendar to update status if events change
     @EnvironmentObject var calendarManager: CalendarManager
     
+    // COMPUTED PROPERTY: School Status
+    // Returns a Tuple: (Text to show, Color to use).
     private var schoolStatus: (text: String, color: Color) {
         let now = Date()
         let calendar = Calendar.current
         
-        // Filter for today's events only
+        // 1. Get Today's Classes
         let todaysEvents = calendarManager.events.filter { calendar.isDateInToday($0.startDate) }
         
         if todaysEvents.isEmpty {
             return ("INACTIVE", .gray)
         }
         
-        // Check if currently in session
+        // 2. Are we inside a class right now?
         let isInSession = todaysEvents.contains { event in
             now >= event.startDate && now <= event.endDate
         }
@@ -24,7 +40,7 @@ struct HeaderView: View {
             return ("IN SESSION", .green)
         }
         
-        // Check if school is over (all events have ended)
+        // 3. Is school completely done?
         let isSchoolOver = todaysEvents.allSatisfy { event in
             now > event.endDate
         }
@@ -33,12 +49,13 @@ struct HeaderView: View {
             return ("SCHOOL OVER", .gray)
         }
         
-        // If has classes today, not in session, and not over -> Break
+        // 4. If has classes, not in one, and not over -> It's a Break/Passing period.
         return ("BREAK", .yellow)
     }
     
     var body: some View {
         HStack {
+            // App Identity
             HStack(spacing: 12) {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(Theme.accentBlue)
@@ -54,6 +71,7 @@ struct HeaderView: View {
             
             Spacer()
             
+            // Date & Status Indicator
             VStack(alignment: .trailing, spacing: 4) {
                 Text("\(dateManager.currentDay), \(dateManager.currentWeek)")
                     .font(.system(size: 14, weight: .bold))

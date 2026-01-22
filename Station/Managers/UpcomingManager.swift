@@ -1,14 +1,32 @@
+/*
+ Station > Managers > UpcomingManager.swift
+ ------------------------------------------
+ PURPOSE:
+ This class manages the "Manual" To-Do list (Tests, Homework, etc.) that the user types in.
+ It is distinct from Calendar events (which are read-only).
+ 
+ RESPONSIBILITIES:
+ 1. CRUD (Create, Read, Update, Delete) for UpcomingItems.
+ 2. Hygiene: Automatically deletes old items after they expire.
+ 3. Alerts: tracks which alerts the user has dismissed.
+ */
+
 import SwiftUI
 import Combine
 
-
 class UpcomingManager: ObservableObject {
+    // MAIN DATA: The list of manual tasks.
     @Published var items: [UpcomingItem] = [] {
         didSet {
+            // Auto-save whenever the list changes.
             saveItems()
         }
     }
     
+    // ALERTS TRACKING:
+    // We store a list of IDs (String) for alerts the user has "Cleared" (X button).
+    // This ensures that even if we refresh the data, we don't annoy the user with the same alert again.
+    // We use `Set` for O(1) fast lookups.
     @Published var clearedAlertIDs: Set<String> = [] {
         didSet {
             saveClearedAlerts()
@@ -22,6 +40,8 @@ class UpcomingManager: ObservableObject {
         loadItems()
         loadClearedAlerts()
     }
+    
+    // MARK: - Actions
     
     func addItem(title: String, description: String, dueDate: Date, category: UpcomingItem.UpcomingCategory, isUrgent: Bool, includeTime: Bool) {
         let newItem = UpcomingItem(title: title, description: description, dueDate: dueDate, category: category, isUrgent: isUrgent, includeTime: includeTime)
@@ -37,11 +57,11 @@ class UpcomingManager: ObservableObject {
     }
     
     func deleteItem(id: UUID) {
-        items.removeAll { $0.id == id }
+        items.removeAll { $0.id == id } // Triggers didSet -> saveItems()
     }
     
     func markAlertsAsCleared(ids: [String]) {
-        clearedAlertIDs.formUnion(ids)
+        clearedAlertIDs.formUnion(ids) // specific 'Set' method to add array of items efficiently
     }
     
     func refresh() {
@@ -53,35 +73,39 @@ class UpcomingManager: ObservableObject {
         clearedAlertIDs = []
     }
     
+    // MARK: - Logic: Hygiene & Sorting
+    
     private func sortAndCleanItems() {
-        // Remove items that are past due, with a 15-minute grace period
-        // This prevents items added "now" from disappearing immediately        // Remove items that are past due
-        // We retain items for 15 minutes after their due time to allow for "X min ago" alerts
+        // CLEANUP LOGIC:
+        // We remove items that are significantly past due.
+        // We keep them for 15 minutes (910 seconds) after the due time so "X mins ago" alerts can still be seen.
         let now = Date()
         let expirationThreshold = now.addingTimeInterval(-910) // 15 minutes + buffer
         
         items.removeAll { inputItem in
-             // For all items (with or without time), we use the 15m grace period
-             // This supports the Alerts logic requiring items to persist for "X min ago"
+             // If item is older than 15 mins ago, delete it forever.
              return inputItem.dueDate < expirationThreshold
         }
         
-        // Also clean up clearedAlertIDs for items that no longer exist
-        // This prevents the set from growing indefinitely
+        // CLEANUP ALERTS:
+        // If an item was deleted, we should also forget that we cleared its alert.
+        // This keeps the `clearedAlertIDs` file from growing infinitely over years of usage.
         let currentIDs = Set(items.map { $0.id.uuidString })
+        // Intersection: Keep only IDs that exist in BOTH 'cleared' and 'current items'.
         clearedAlertIDs = clearedAlertIDs.intersection(currentIDs)
         
+        // SORTING:
+        // 1. Urgent items always on top.
+        // 2. Then sorted by Date (Soonest first).
         items.sort {
             if $0.isUrgent == $1.isUrgent {
                 return $0.dueDate < $1.dueDate
             }
             return $0.isUrgent && !$1.isUrgent
         }
-        
-        // Save after cleanup (since we modified clearedAlertIDs potentially)
-        // If this loop causes infinite recursion due to didSet, we might need flag, 
-        // but simple assignment might trigger save twice, which is acceptable for now.
     }
+    
+    // MARK: - Persistence
     
     private func saveItems() {
         if let encoded = try? JSONEncoder().encode(items) {
@@ -112,5 +136,3 @@ class UpcomingManager: ObservableObject {
         }
     }
 }
-
-//hello

@@ -1,3 +1,16 @@
+/*
+ Station > Views > Dashboard > ClassesBlock.swift
+ ------------------------------------------------
+ PURPOSE:
+ This block displays "Today's Schedule".
+ It connects to the CalendarManager (Read-Only) to show what classes you have right now.
+ 
+ LOGIC:
+ - Filters: Only shows events happening TODAY.
+ - Status: Calculates if an event is happening "NOW" or is "NEXT" to highlight it visually.
+ - Icons: Guesses the subject icon (e.g. "Math" -> Calculator) based on the event title.
+ */
+
 import SwiftUI
 import EventKit
 
@@ -6,6 +19,7 @@ struct ClassesBlock: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // Header
             HStack {
                 Text("Today's Classes")
                     .font(.system(size: 20, weight: .bold))
@@ -21,6 +35,8 @@ struct ClassesBlock: View {
             }
             
             VStack(spacing: 12) {
+                // Filter Logic:
+                // Only take events where `startDate` is inside the current day.
                 let todaysEvents = calendarManager.events.filter { Calendar.current.isDateInToday($0.startDate) }
                 
                 if todaysEvents.isEmpty {
@@ -62,6 +78,8 @@ struct ClassesBlock: View {
         }
     }
     
+    // MARK: - Status Logic
+    
     private func getEventStatus(event: CalendarEvent, allEvents: [CalendarEvent]) -> EventStatus {
         let now = Date()
         
@@ -73,6 +91,7 @@ struct ClassesBlock: View {
         // Find the next upcoming event
         // The first event that hasn't started yet
         let upcomingEvents = allEvents.filter { $0.startDate > now }
+        // If this event matches the *first* one in the future list, it is "Next".
         if let firstUpcoming = upcomingEvents.first, firstUpcoming.id == event.id {
             return .next
         }
@@ -82,6 +101,7 @@ struct ClassesBlock: View {
     
     private func getIcon(for title: String) -> String {
         let lowerTitle = title.lowercased()
+        // Heuristic mapping for common subjects
         if lowerTitle.contains("physics") || lowerTitle.contains("science") { return "flask.fill" }
         if lowerTitle.contains("english") || lowerTitle.contains("lit") { return "book.fill" }
         if lowerTitle.contains("math") || lowerTitle.contains("calc") { return "sum" }

@@ -1,13 +1,30 @@
+/*
+ Station > Views > Resources > AddResourceSheet.swift
+ ----------------------------------------------------
+ PURPOSE:
+ A modal form (sheet) that allows users to create a new ResourceItem.
+ 
+ SWIFTUI PATTERNS:
+ - @Binding: This view doesn't "own" the `isPresented` state; the parent (ResourcesView) does.
+   We just have a reference (binding) to it so we can set it to `false` to close ourselves.
+ - Form Validation: The "Add" button is disabled until valid input is detected.
+ */
+
 import SwiftUI
 
 struct AddResourceSheet: View {
+    // Reference to the shared brain. We use this to actually add the item.
     @ObservedObject var manager: ResourceManager
+    
+    // Binding to the 'show' toggle in the parent view.
     @Binding var isPresented: Bool
     
+    // Temporary State for the Form
+    // These hold values ONLY while the user is typing.
     @State private var title = ""
     @State private var urlString = ""
     @State private var selectedIcon = "link"
-    @State private var selectedTags: Set<String> = []
+    @State private var selectedTags: Set<String> = [] // Set ensures uniqueness (no duplicate tags)
     
     let icons = ["link", "book", "graduationcap", "folder", "doc.text", "globe", "flask", "desktopcomputer"]
     let availableTags = ["Math", "Science", "History", "English", "CS", "General", "Exams", "Reference"]
@@ -29,12 +46,13 @@ struct AddResourceSheet: View {
             
             ScrollView {
                 VStack(spacing: 24) {
-                    // Title & URL
+                    // Title & URL Inputs
                     VStack(alignment: .leading, spacing: 16) {
                         InputField(title: "Title", placeholder: "e.g. Textbook PDF", text: $title)
                         InputField(title: "URL", placeholder: "https://...", text: $urlString)
                     }
                     
+                    // ... (Icon Picker and Tags) ...
                     // Icon Picker
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Icon")
@@ -56,6 +74,7 @@ struct AddResourceSheet: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(Theme.textSecondary)
                         
+                        // Adaptive Grid for tags (like a wrapping flow layout)
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 80))], spacing: 8) {
                             ForEach(availableTags, id: \.self) { tag in
                                 TagToggle(tag: tag, isSelected: selectedTags.contains(tag)) {
@@ -72,14 +91,18 @@ struct AddResourceSheet: View {
                 .padding(24)
             }
             
-            // Footer
+            // Footer Action
             HStack {
                 Button(action: {
+                    // ACTION: Commit Data
+                    // 1. Ask manager to create the object
                     manager.addItem(title: title, urlString: urlString, tags: Array(selectedTags), iconName: selectedIcon)
+                    // 2. Close the sheet
                     isPresented = false
                 }) {
                     Text("Add Resource")
                         .font(.system(size: 14, weight: .semibold))
+                        // ... styling ...
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .background(Theme.accentBlue)
@@ -87,6 +110,8 @@ struct AddResourceSheet: View {
                         .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
+                // LOGIC: Validation
+                // Prevent adding empty items
                 .disabled(title.isEmpty || urlString.isEmpty)
                 .opacity(title.isEmpty || urlString.isEmpty ? 0.5 : 1.0)
             }

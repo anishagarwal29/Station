@@ -1,9 +1,23 @@
+/*
+ Station > Views > Upcoming > AddUpcomingItemSheet.swift
+ -------------------------------------------------------
+ PURPOSE:
+ A Modal Sheet used to Create OR Edit an Upcoming Task.
+ 
+ ARCHITECTURE:
+ - Uses `@Environment(\.presentationMode)` to close itself.
+ - Uses a custom `init` to populate fields if editing an existing item.
+ - Binds directly to local @State variables, then commits to `UpcomingManager` on Save.
+ */
+
 import SwiftUI
 
 struct AddUpcomingItemSheet: View {
+    // Allows us to programmatically close the sheet
     @Environment(\.presentationMode) var presentationMode
     @EnvironmentObject var upcomingManager: UpcomingManager
     
+    // Form State
     @State private var title: String = ""
     @State private var description: String = ""
     @State private var dueDate: Date = Date()
@@ -11,12 +25,16 @@ struct AddUpcomingItemSheet: View {
     @State private var category: UpcomingItem.UpcomingCategory = .homework
     @State private var isUrgent: Bool = false
     
+    // If this is set, we are in "Edit Mode". If nil, "Create Mode".
     var itemToEdit: UpcomingItem?
     
+    // Custom Init: Pre-fill state if we are editing
     init(itemToEdit: UpcomingItem? = nil) {
         self.itemToEdit = itemToEdit
+        // We must Initialize State manually because "self.title = ..." doesn't work on @State inside init
         _title = State(initialValue: itemToEdit?.title ?? "")
         _description = State(initialValue: itemToEdit?.description ?? "")
+        // Default time: Now + 1 Hour (if creating new)
         _dueDate = State(initialValue: itemToEdit?.dueDate ?? Date().addingTimeInterval(3600))
         _includeTime = State(initialValue: itemToEdit?.includeTime ?? false)
         _category = State(initialValue: itemToEdit?.category ?? .homework)
@@ -74,6 +92,7 @@ struct AddUpcomingItemSheet: View {
                                 .foregroundColor(Theme.textSecondary)
                             
                             VStack(alignment: .leading, spacing: 12) {
+                                // Dynamic DatePicker: Hides time if 'includeTime' is false
                                 DatePicker("", selection: $dueDate, displayedComponents: includeTime ? [.date, .hourAndMinute] : [.date])
                                     .labelsHidden()
                                 
@@ -110,6 +129,7 @@ struct AddUpcomingItemSheet: View {
             Divider()
                 .background(Color.white.opacity(0.1))
             
+            // Footer Actions
             HStack {
                 Button("Cancel") {
                     presentationMode.wrappedValue.dismiss()
@@ -122,6 +142,7 @@ struct AddUpcomingItemSheet: View {
                 
                 Button("Save") {
                     if let item = itemToEdit {
+                        // UPDATE Logic
                         var updatedItem = item
                         updatedItem.title = title
                         updatedItem.description = description
@@ -131,14 +152,15 @@ struct AddUpcomingItemSheet: View {
                         updatedItem.includeTime = includeTime
                         upcomingManager.updateItem(updatedItem)
                     } else {
+                        // CREATE Logic
                         upcomingManager.addItem(title: title, description: description, dueDate: dueDate, category: category, isUrgent: isUrgent, includeTime: includeTime)
                     }
                     presentationMode.wrappedValue.dismiss()
                 }
-                .keyboardShortcut(.defaultAction)
+                .keyboardShortcut(.defaultAction) // Enter key triggers save
                 .buttonStyle(.borderedProminent)
                 .tint(Theme.accentBlue)
-                .disabled(title.isEmpty)
+                .disabled(title.isEmpty) // Validation: Title required
             }
         }
         .padding(24)

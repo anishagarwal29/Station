@@ -1,3 +1,18 @@
+/*
+ Station > Views > Dashboard > AlertsBlock.swift
+ -----------------------------------------------
+ PURPOSE:
+ This is the "Smart Notification" center of the dashboard.
+ It scans all tasks and events to tell the user what they should panic about NOW.
+ 
+ LOGIC:
+ 1. Eligibility: Only items within a specific time window (e.g. now + 60 mins).
+ 2. Prioritization: Urgent items ALWAYS override normal items.
+ 3. Sorting:
+    - If "In the Past" (e.g. started 5 mins ago), priority goes to the MOST RECENT start time.
+    - If "In the Future" (e.g. starts in 10 mins), priority goes to the SOONEST start time.
+ */
+
 import SwiftUI
 
 struct AlertsBlock: View {
@@ -24,12 +39,14 @@ struct AlertsBlock: View {
         let isUrgent: Bool
     }
     
+    // COMPUTED PROPERTY: Gather all possible alerts
     var currentAlertCandidates: [Candidate] {
         let now = Date()
         let showWindowSeconds = settings.alertTiming.secondsBefore
         let expireWindowSeconds = settings.autoDismissAlerts.seconds
         
-        // Window thresholds
+        // Window thresholds:
+        // [Expire Threshold] <--- NOW ---> [Show Threshold]
         let showThreshold = now.addingTimeInterval(showWindowSeconds)
         let expireThreshold = now.addingTimeInterval(-expireWindowSeconds)
         
@@ -71,6 +88,7 @@ struct AlertsBlock: View {
         return candidates
     }
     
+    // COMPUTED PROPERTY: Select the SINGLE BEST alert to show
     var alert: AlertItem? {
         let now = Date()
         

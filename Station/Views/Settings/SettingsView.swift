@@ -1,3 +1,15 @@
+/*
+ Station > Views > Settings > SettingsView.swift
+ -----------------------------------------------
+ PURPOSE:
+ The configuration screen for the user.
+ 
+ ARCHITECTURE:
+ - Uses a `Form` style layout (actually custom Cards in a ScrollView) for grouped settings.
+ - Directly binds UI controls (Toggles, Pickers) to the `SettingsManager`.
+ - Uses `ObservableObject` to update efficiently when settings change.
+ */
+
 import SwiftUI
 import EventKit
 
@@ -5,367 +17,314 @@ struct SettingsView: View {
     @ObservedObject var settings = SettingsManager.shared
     @EnvironmentObject var calendarManager: CalendarManager
     @EnvironmentObject var upcomingManager: UpcomingManager
-    @State private var showingResetAlert = false
-    
-    @State private var isCalendarsExpanded = false
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Settings")
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(Theme.textPrimary)
-                Text("Configure your preferences")
-                    .font(.system(size: 16))
-                    .foregroundColor(Theme.textSecondary)
-            }
-            .padding(.horizontal, 40)
-            .padding(.top, 40)
-            .padding(.bottom, 24)
-            
-            ScrollView {
-                VStack(alignment: .leading, spacing: 32) {
-                    
-                    // --- Calendar Settings ---
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Calendar Settings")
-                            .font(.headline)
-                            .foregroundColor(Theme.textPrimary)
-                            .padding(.horizontal, 4)
-                        
-                        SettingsCard {
-                            if hasCalendarAccess {
-                                if calendarManager.availableCalendars.isEmpty {
-                                    Text("No calendars found.")
-                                        .foregroundColor(Theme.textSecondary)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                } else {
-                                    VStack(spacing: 0) {
-                                        // Expandable Header
-                                        Button(action: { withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { isCalendarsExpanded.toggle() } }) {
-                                            HStack {
-                                                VStack(alignment: .leading, spacing: 6) {
-                                                    Text("Select Calendars")
-                                                        .foregroundColor(Theme.textPrimary)
-                                                        .font(.system(size: 15, weight: .semibold))
-                                                    
-                                                    Text(selectedCalendarsSummary)
-                                                        .font(.system(size: 13))
-                                                        .foregroundColor(Theme.textSecondary)
-                                                        .lineLimit(1)
-                                                }
-                                                Spacer()
-                                                
-                                                Circle()
-                                                    .fill(Color.white.opacity(0.05))
-                                                    .frame(width: 28, height: 28)
-                                                    .overlay(
-                                                        Image(systemName: "chevron.right")
-                                                            .font(.system(size: 12, weight: .bold))
-                                                            .foregroundColor(Theme.textSecondary)
-                                                            .rotationEffect(.degrees(isCalendarsExpanded ? 90 : 0))
-                                                    )
-                                            }
-                                            .contentShape(Rectangle())
-                                        }
-                                        .buttonStyle(.plain)
-                                        .padding(.vertical, 8)
-                                        
-                                        if isCalendarsExpanded {
-                                            Rectangle()
-                                                .fill(Color.white.opacity(0.1))
-                                                .frame(height: 1)
-                                                .padding(.vertical, 12)
-                                            
-                                            // Group calendars by Title
-                                            let groups = Dictionary(grouping: calendarManager.availableCalendars, by: { $0.title })
-                                            let sortedTitles = groups.keys.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
-                                            
-                                            ForEach(Array(sortedTitles.enumerated()), id: \.element) { index, title in
-                                                if let calendars = groups[title], let firstCalendar = calendars.first {
-                                                    CalendarGroupRow(
-                                                        title: title,
-                                                        color: Color(firstCalendar.color),
-                                                        calendars: calendars,
-                                                        settings: settings
-                                                    ) {
-                                                        calendarManager.fetchEvents()
-                                                    }
-                                                    .padding(.vertical, 4)
-                                                    
-                                                    if index < sortedTitles.count - 1 {
-                                                        Rectangle()
-                                                            .fill(Color.white.opacity(0.05))
-                                                            .frame(height: 1)
-                                                            .padding(.leading, 24)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                HStack {
-                                    Text("Calendar access required")
-                                        .foregroundColor(Theme.textSecondary)
-                                    Spacer()
-                                    Button("Request Access") {
-                                        calendarManager.requestAccess()
-                                    }
-                                }
-                            }
-                        }
-                        
-                        if hasCalendarAccess {
-                            Text("Calendars toggled ON are treated as Studying calendars.")
-                                .font(.caption)
-                                .foregroundColor(Theme.textSecondary.opacity(0.7))
-                                .padding(.horizontal, 4)
-                        }
-                    }
-                    
-                    // --- Upcoming Settings ---
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Upcoming Settings")
-                            .font(.headline)
-                            .foregroundColor(Theme.textPrimary)
-                            .padding(.horizontal, 4)
-                        
-                        SettingsCard {
-                            SettingsToggleRow(title: "Include calendar events", isOn: $settings.includeCalendarInUpcoming)
-                            Divider().background(Color.white.opacity(0.1))
-                            
-                            HStack {
-                                Text("Limit Upcoming to")
-                                    .foregroundColor(Theme.textPrimary)
-                                Spacer()
-                                Picker("", selection: $settings.upcomingTimeLimit) {
-                                    ForEach(SettingsManager.UpcomingTimeLimit.allCases) { limit in
-                                        Text(limit.rawValue).tag(limit)
-                                    }
-                                }
-                                .labelsHidden()
-                                .fixedSize()
-                            }
-                            .padding(.vertical, 4)
-                            
-                            Divider().background(Color.white.opacity(0.1))
-                            SettingsToggleRow(title: "Group Upcoming items by date", isOn: $settings.groupUpcomingByDate)
-                        }
-                    }
-                    
-                    // --- Alerts Settings ---
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Alerts Settings")
-                            .font(.headline)
-                            .foregroundColor(Theme.textPrimary)
-                            .padding(.horizontal, 4)
-                        
-                        SettingsCard {
-                            SettingsToggleRow(title: "Include calendar events in alerts", isOn: $settings.includeCalendarInAlerts)
-                            Divider().background(Color.white.opacity(0.1))
-                            
-                            HStack {
-                                Text("Alert timing")
-                                    .foregroundColor(Theme.textPrimary)
-                                Spacer()
-                                Picker("", selection: $settings.alertTiming) {
-                                    ForEach(SettingsManager.AlertTiming.allCases) { timing in
-                                        Text(timing.rawValue).tag(timing)
-                                    }
-                                }
-                                .labelsHidden()
-                                .fixedSize()
-                            }
-                            .padding(.vertical, 4)
-                            
-                            Divider().background(Color.white.opacity(0.1))
-                            
-                            HStack {
-                                Text("Auto-dismiss alerts after")
-                                    .foregroundColor(Theme.textPrimary)
-                                Spacer()
-                                Picker("", selection: $settings.autoDismissAlerts) {
-                                    ForEach(SettingsManager.AutoDismissInterval.allCases) { interval in
-                                        Text(interval.rawValue).tag(interval)
-                                    }
-                                }
-                                .labelsHidden()
-                                .fixedSize()
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    }
-                    
-                    // --- General Settings ---
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("General")
-                            .font(.headline)
-                            .foregroundColor(Theme.textPrimary)
-                            .padding(.horizontal, 4)
-                        
-                        SettingsCard {
-                            HStack {
-                                Text("Default launch tab")
-                                    .foregroundColor(Theme.textPrimary)
-                                Spacer()
-                                Picker("", selection: $settings.defaultLaunchTab) {
-                                    ForEach(SettingsManager.Tab.allCases) { tab in
-                                        Text(tab.rawValue).tag(tab)
-                                    }
-                                }
-                                .pickerStyle(.segmented) // Segmented looks nice for tabs
-                                .fixedSize()
-                            }
-                            .padding(.vertical, 4)
-                            
-                            Divider().background(Color.white.opacity(0.1))
-                            
-                            HStack {
-                                Text("Reset manual upcoming items")
-                                    .foregroundColor(Theme.textPrimary)
-                                Spacer()
-                                Button("Reset") {
-                                    showingResetAlert = true
-                                }
-                                .foregroundColor(.red)
-                                .opacity(0.8)
-                            }
-                            .padding(.vertical, 4)
-                            .alert("Reset Items?", isPresented: $showingResetAlert) {
-                                Button("Cancel", role: .cancel) { }
-                                Button("Reset", role: .destructive) {
-                                    upcomingManager.resetAllManualItems()
-                                }
-                            } message: {
-                                Text("This will delete all manually added upcoming items. Calendar data will not be affected.")
-                            }
-                        }
-                    }
-                    
-                    // --- About ---
-                    VStack(spacing: 8) {
-                        Text("Station v1.0.0")
-                            .font(.caption)
-                            .foregroundColor(Theme.textSecondary.opacity(0.5))
-                            .frame(maxWidth: .infinity, alignment: .center)
-                    }
-                    .padding(.top, 20)
-                    .padding(.bottom, 40)
-                    
-                }
-                .padding(.horizontal, 40)
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.background)
-    }
     
     private var hasCalendarAccess: Bool {
-        if calendarManager.permissionStatus == .authorized { return true }
-        if #available(macOS 14.0, *) {
-            if calendarManager.permissionStatus == .fullAccess { return true }
-        }
-        return false
+        calendarManager.permissionStatus == .authorized || calendarManager.permissionStatus == .fullAccess
     }
     
     private var selectedCalendarsSummary: String {
         let count = settings.selectedCalendarIDs.count
-        if count == 0 { return "No calendars selected" }
-        
-        // Map ID to Title, deduplicate
-        let titles = calendarManager.availableCalendars
-            .filter { settings.selectedCalendarIDs.contains($0.calendarIdentifier) }
-            .map { $0.title }
-        
-        let uniqueTitles = Array(Set(titles)).sorted()
-        
-        if uniqueTitles.isEmpty { return "\(count) calendars selected" }
-        if uniqueTitles.count <= 3 {
-            return uniqueTitles.joined(separator: ", ")
+        if count == 0 { return "None selected" }
+        if count == calendarManager.availableCalendars.count { return "All calendars" }
+        return "\(count) selected"
+    }
+    
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                // Header
+                HStack {
+                    Text("Settings")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundColor(Theme.textPrimary)
+                    Spacer()
+                }
+                .padding(.bottom, 8)
+                
+                // MARK: - Calendar
+                SettingsSection(title: "CALENDARS", icon: "calendar") {
+                    
+                    if !hasCalendarAccess {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Calendar Access Required")
+                                .font(.headline)
+                                .foregroundColor(.orange)
+                            Text("Station needs access to your calendar to display your classes and upcoming events.")
+                                .font(.subheadline)
+                                .foregroundColor(Theme.textSecondary)
+                            Button("Grant Access") {
+                                calendarManager.requestAccess()
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                        .padding()
+                    } else {
+                        CalendarGroupRow(
+                            title: "Your Calendars",
+                            subtitle: selectedCalendarsSummary,
+                            icon: "tray.full.fill"
+                        ) {
+                            ForEach(calendarManager.availableCalendars, id: \.calendarIdentifier) { calendar in
+                                Toggle(isOn: Binding(
+                                    get: { settings.selectedCalendarIDs.contains(calendar.calendarIdentifier) },
+                                    set: { isSelected in
+                                        if isSelected {
+                                            settings.selectedCalendarIDs.insert(calendar.calendarIdentifier)
+                                        } else {
+                                            settings.selectedCalendarIDs.remove(calendar.calendarIdentifier)
+                                        }
+                                        calendarManager.fetchEvents()
+                                    }
+                                )) {
+                                    HStack {
+                                        Circle()
+                                            .fill(Color(calendar.cgColor))
+                                            .frame(width: 8, height: 8)
+                                        Text(calendar.title)
+                                            .foregroundColor(Theme.textPrimary)
+                                        Spacer()
+                                        Text(calendar.source.title)
+                                            .font(.caption)
+                                            .foregroundColor(Theme.textSecondary)
+                                    }
+                                }
+                                .toggleStyle(SwitchToggleStyle(tint: Theme.accentBlue))
+                                .padding(.vertical, 4)
+                            }
+                        }
+                    }
+                }
+                
+                // MARK: - Upcoming
+                SettingsSection(title: "UPCOMING", icon: "clock.fill") {
+                    SettingsToggleRow(
+                        title: "Include Calendar Events",
+                        icon: "calendar.badge.plus",
+                        isOn: $settings.includeCalendarInUpcoming
+                    )
+                    
+                    Divider().background(Color.white.opacity(0.1))
+                    
+                    SettingsPickerRow(
+                        title: "Time Limit",
+                        icon: "hourglass",
+                        selection: $settings.upcomingTimeLimit
+                    )
+                    
+                    Divider().background(Color.white.opacity(0.1))
+                    
+                    SettingsToggleRow(
+                        title: "Group by Date",
+                        icon: "rectangle.grid.1x2.fill",
+                        isOn: $settings.groupUpcomingByDate
+                    )
+                    
+                    Divider().background(Color.white.opacity(0.1))
+                    
+                    // Danger Zone: Clear Data
+                    Button(action: {
+                        upcomingManager.resetAllManualItems()
+                    }) {
+                        HStack {
+                            Image(systemName: "trash")
+                            Text("Clear All Manual Tasks")
+                        }
+                        .foregroundColor(.red)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.vertical, 8)
+                }
+                
+                // MARK: - Alerts
+                SettingsSection(title: "ALERTS", icon: "bell.fill") {
+                    SettingsToggleRow(
+                        title: "Include Calendar Events",
+                        icon: "bell.badge",
+                        isOn: $settings.includeCalendarInAlerts
+                    )
+                    
+                    Divider().background(Color.white.opacity(0.1))
+                    
+                    SettingsPickerRow(
+                        title: "Show Alert",
+                        icon: "timer",
+                        selection: $settings.alertTiming
+                    )
+                    
+                    Divider().background(Color.white.opacity(0.1))
+                    
+                    SettingsPickerRow(
+                        title: "Auto-Dismiss After",
+                        icon: "xmark.circle",
+                        selection: $settings.autoDismissAlerts
+                    )
+                }
+                
+                // MARK: - General
+                SettingsSection(title: "GENERAL", icon: "gear") {
+                    SettingsPickerRow(
+                        title: "Default Launch Tab",
+                        icon: "arrow.up.left.and.arrow.down.right",
+                        selection: $settings.defaultLaunchTab
+                    )
+                }
+                
+                VStack(spacing: 8) {
+                    Text("Station v1.0")
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary.opacity(0.5))
+                    Text("Designed for Students")
+                        .font(.caption2)
+                        .foregroundColor(Theme.textSecondary.opacity(0.3))
+                }
+                .padding(.top, 20)
+                .padding(.bottom, 40)
+            }
+            .padding(32)
         }
-        return "\(uniqueTitles.prefix(3).joined(separator: ", ")) + \(uniqueTitles.count - 3) more"
+        .background(Theme.background)
+        .foregroundColor(Theme.textPrimary)
     }
 }
 
 // MARK: - Helper Views
 
-struct SettingsCard<Content: View>: View {
+struct SettingsSection<Content: View>: View {
+    let title: String
+    let icon: String
     let content: Content
     
-    init(@ViewBuilder content: () -> Content) {
+    init(title: String, icon: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.icon = icon
         self.content = content()
     }
     
     var body: some View {
-        VStack(spacing: 12) {
-            content
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(Theme.accentBlue)
+                Text(title)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(Theme.textSecondary)
+                    .tracking(1) // uppercase spacing
+            }
+            .padding(.leading, 4)
+            
+            VStack(spacing: 0) {
+                content
+            }
+            .padding(16)
+            .background(Theme.cardBackground)
+            .cornerRadius(Theme.cornerRadius)
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.cornerRadius)
+                    .stroke(Color.white.opacity(0.05), lineWidth: 1)
+            )
         }
-        .padding(16)
-        .background(Theme.cardBackground)
-        .cornerRadius(Theme.cornerRadius)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.cornerRadius)
-                .stroke(Color.white.opacity(0.05), lineWidth: 1)
-        )
     }
 }
 
 struct SettingsToggleRow: View {
     let title: String
+    let icon: String
     @Binding var isOn: Bool
     
     var body: some View {
         HStack {
+            Image(systemName: icon)
+                .foregroundColor(Theme.textSecondary)
+                .frame(width: 24)
+            
             Text(title)
-                .foregroundColor(Theme.textPrimary)
+                .font(.system(size: 14))
+            
             Spacer()
+            
             Toggle("", isOn: $isOn)
-                .labelsHidden()
-                .toggleStyle(.switch) // Switch style looks solid on macOS
+                .toggleStyle(SwitchToggleStyle(tint: Theme.accentBlue))
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 8)
     }
 }
 
-struct CalendarGroupRow: View {
+struct SettingsPickerRow<T: Hashable & Identifiable & RawRepresentable>: View where T.RawValue == String, T: CaseIterable {
     let title: String
-    let color: Color
-    let calendars: [EKCalendar]
-    @ObservedObject var settings: SettingsManager
-    let onChange: () -> Void
+    let icon: String
+    @Binding var selection: T
     
     var body: some View {
         HStack {
-            Circle()
-                .fill(color)
-                .frame(width: 8, height: 8)
+            Image(systemName: icon)
+                .foregroundColor(Theme.textSecondary)
+                .frame(width: 24)
             
             Text(title)
-                .foregroundColor(Theme.textPrimary)
+                .font(.system(size: 14))
             
             Spacer()
             
-            Toggle("", isOn: Binding(
-                get: {
-                    // Display as ON if ANY calendar in the group is selected
-                    !calendars.isEmpty && calendars.contains { settings.selectedCalendarIDs.contains($0.calendarIdentifier) }
-                },
-                set: { isOn in
-                    for calendar in calendars {
-                        if isOn {
-                            settings.selectedCalendarIDs.insert(calendar.calendarIdentifier)
-                        } else {
-                            settings.selectedCalendarIDs.remove(calendar.calendarIdentifier)
-                        }
-                    }
-                    onChange()
+            Picker("", selection: $selection) {
+                ForEach(Array(T.allCases), id: \.self) { option in
+                    Text(option.rawValue).tag(option)
                 }
-            ))
-            .labelsHidden()
-            .toggleStyle(.switch)
+            }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 8)
+    }
+}
+
+struct CalendarGroupRow<Content: View>: View {
+    let title: String
+    let subtitle: String
+    let icon: String
+    let content: Content
+    
+    @State private var isExpanded: Bool = false
+    
+    init(title: String, subtitle: String, icon: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.subtitle = subtitle
+        self.icon = icon
+        self.content = content()
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            Button(action: { withAnimation { isExpanded.toggle() } }) {
+                HStack {
+                    Image(systemName: icon)
+                        .foregroundColor(Theme.textSecondary)
+                        .frame(width: 24)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title).font(.system(size: 14))
+                        Text(subtitle)
+                            .font(.caption)
+                            .foregroundColor(Theme.textSecondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                        .foregroundColor(Theme.textSecondary)
+                        .font(.system(size: 12))
+                }
+                .padding(.vertical, 8)
+            }
+            .buttonStyle(.plain)
+            
+            if isExpanded {
+                Divider().background(Color.white.opacity(0.1))
+                VStack(spacing: 0) {
+                    content
+                }
+                .padding(.leading, 24) // Indent content
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
     }
 }

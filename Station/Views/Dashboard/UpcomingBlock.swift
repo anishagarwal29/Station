@@ -1,11 +1,27 @@
+/*
+ Station > Views > Dashboard > UpcomingBlock.swift
+ -------------------------------------------------
+ PURPOSE:
+ Shows a preview of what's coming up "Tomorrow and Beyond".
+ 
+ LOGIC:
+ 1. Aggregates data from two sources:
+    - Manual Items (from UpcomingManager)
+    - Calendar Events (from CalendarManager)
+ 2. Filters strictly for dates starting TOMORROW (Today is covered by ClassesBlock).
+ 3. Sorts by date and picks only the top 2 for a compact view.
+ */
+
 import SwiftUI
 
 struct UpcomingBlock: View {
     @EnvironmentObject var upcomingManager: UpcomingManager
     @EnvironmentObject var calendarManager: CalendarManager
     
+    // We observe settings to know if we should include calendar items here.
     @ObservedObject var settings = SettingsManager.shared
     
+    // An internal Struct to unify the two different data types (Task vs Event) into one view model.
     struct UpcomingDisplayItem: Identifiable {
         let id: String
         let title: String
@@ -15,20 +31,24 @@ struct UpcomingBlock: View {
         let isUrgent: Bool
     }
     
+    // COMPUTED PROPERTY:
+    // This does all the heavy lifting of merging, filtering, and sorting.
     var visibleItems: [UpcomingDisplayItem] {
         let calendar = Calendar.current
         let startOfToday = calendar.startOfDay(for: Date())
+        
         // "Upcoming → future only" (Tomorrow onwards)
+        // If we can't calculate tomorrow, return empty.
         guard let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday) else { return [] }
         
-        // Calculate cutoff date based on settings
+        // Calculate cutoff date based on settings (e.g. Next 3 Days, Next 7 Days)
         var cutoffDate: Date?
         if let days = settings.upcomingTimeLimit.days {
             cutoffDate = calendar.date(byAdding: .day, value: days, to: startOfTomorrow)
         }
         
         var displayed: [UpcomingDisplayItem] = []
-        var seenCalendarEventIDs = Set<String>() // Track calendar event IDs to prevent duplicates
+        var seenCalendarEventIDs = Set<String>() // Track IDs to prevent duplicates if calc runs multiple times
         
         // 1. Manual Items (From start of tomorrow onwards)
         let relevantTasks = upcomingManager.items.filter { item in
@@ -76,7 +96,7 @@ struct UpcomingBlock: View {
             }
         }
         
-        // Sort strictly by date/time and take MAX 2
+        // Sort strictly by date/time (Soonest first) and take MAX 2
         return Array(displayed.sorted { $0.date < $1.date }.prefix(2))
     }
     
@@ -98,6 +118,7 @@ struct UpcomingBlock: View {
                 .cornerRadius(Theme.cornerRadius)
             } else {
                 // 2-Column Grid
+                // We use LazyVGrid with flexible columns to fit side-by-side if width permits
                 LazyVGrid(columns: [
                     GridItem(.flexible()),
                     GridItem(.flexible())

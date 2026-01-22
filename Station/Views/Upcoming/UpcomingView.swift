@@ -1,3 +1,17 @@
+/*
+ Station > Views > Upcoming > UpcomingView.swift
+ -----------------------------------------------
+ PURPOSE:
+ The main list view for all "To-Dos" and "Events".
+ 
+ ARCHITECTURE:
+ - Aggregates data from `UpcomingManager` (Manual) and `CalendarManager` (Events).
+ - Uses a `UnifiedItem` struct to map both data types into a single list.
+ - Supports complex filtering:
+   1. Date Filters (Settings > Time Limit)
+   2. Category Filters (UI Filter Chips)
+ */
+
 import SwiftUI
 import EventKit
 
@@ -6,12 +20,16 @@ struct UpcomingView: View {
     @EnvironmentObject var calendarManager: CalendarManager
     @ObservedObject var settings = SettingsManager.shared
     
+    // UI State for Modal Sheet
     @State private var isShowingAddSheet = false
     @State private var itemToEdit: UpcomingItem?
     
     // Filter State: Initially all categories selected
     @State private var selectedFilters: Set<UpcomingItem.UpcomingCategory> = Set(UpcomingItem.UpcomingCategory.allCases)
     
+    // VIEW MODEL: Unified Item
+    // Since we display both 'UpcomingItem' and 'CalendarEvent' in the same list, 
+    // we create a common struct that both can map to.
     struct UnifiedItem: Identifiable {
         let id: String
         let title: String
@@ -21,25 +39,24 @@ struct UpcomingView: View {
         let isUrgent: Bool
         let includeTime: Bool
         let isCalendar: Bool
-        let originalItemId: UUID?
+        let originalItemId: UUID? // Used to link back to the actual object for editing
     }
     
+    // COMPUTED PROPERTY: The Mega List
+    // Merges, Filters, and Sorts all items.
     var allItems: [UnifiedItem] {
         let calendar = Calendar.current
         let startOfToday = calendar.startOfDay(for: Date())
         
-        // Calculate cutoff date based on settings
+        // Calculate cutoff date based on settings ("Next 3 Days")
         var cutoffDate: Date?
         if let days = settings.upcomingTimeLimit.days {
-            // "Next X days" usually means today + X days? Or just X days from now?
-            // "Next 3 days" implies Today, Tomorrow, Day After.
-            // Let's assume startOfToday + days (inclusive).
             cutoffDate = calendar.date(byAdding: .day, value: days, to: startOfToday)
         }
         
         var unified: [UnifiedItem] = []
         
-        // 1. Manual Items
+        // 1. Process Manual Items
         let relevantManualItems = upcomingManager.items.filter { item in
             // Date filter: Today or Future
             var valid = item.dueDate >= startOfToday
@@ -49,23 +66,8 @@ struct UpcomingView: View {
                 valid = valid && item.dueDate <= cutoff
             }
             
-            // Cleared Alerts filter (Wait, cleared alerts shouldn't hide from Upcoming list, only from Alerts block!)
-            // User request 724: "remove calendar events ... while still allowing them to appear in alerts" implies separation.
-            // But "Upcoming View" should show all upcoming tasks.
-            // Checking step 742 code: I WAS filtering cleared alerts: `!upcomingManager.clearedAlertIDs.contains(item.id.uuidString)`.
-            // User requirement "Clear All" acts on Alerts. Usually "Dismiss Alert". Does it delete the task? No.
-            // So it should probably still show in Upcoming List.
-            // However, Previous code in step 742 explicitly filtered them out.
-            // "1. Manual Items (from today onwards, excluding cleared alerts)"
-            // If I dismissed an alert, do I want it gone from my list?
-            // Usually "Dismiss" means "I saw it, stop bothering me". It might still be "Due".
-            // I'll REMOVE the cleared alerts filter from Upcoming View logic to be safe/standard (it persists in list), 
-            // OR keep it if that was the "Done" mechanism.
-            // But "Delete" is the Done mechanism.
-            // I'll show them. But the previous code hid them.
-            // I'll stick to displaying everything in the List view (Upcoming Tab) regardless of Alert status.
             if valid {
-               // Category Filter
+               // Apply Category Filter (via UI Chips)
                return selectedFilters.contains(item.category)
             }
             return false
@@ -85,7 +87,7 @@ struct UpcomingView: View {
              ))
         }
         
-        // 2. Calendar Events (If Enabled)
+        // 2. Process Calendar Events (If Enabled in Settings)
         if settings.includeCalendarInUpcoming {
              let relevantEvents = calendarManager.events.filter { event in
                  var valid = event.startDate >= startOfToday
@@ -100,7 +102,7 @@ struct UpcomingView: View {
                     id: event.id,
                     title: event.title,
                     date: event.startDate,
-                    description: event.location ?? "",
+                    description: event.location ?? "", // Map Location to Description
                     category: nil,
                     isUrgent: false,
                     includeTime: true,
@@ -110,22 +112,26 @@ struct UpcomingView: View {
              }
         }
         
+        // Final Sort: Chronological, then Urgent
         return unified.sorted { 
             if $0.date != $1.date { return $0.date < $1.date }
             return $0.isUrgent && !$1.isUrgent
         }
     }
     
+    // COMPUTED PROPERTY: Group items by Date (Sticky Headers)
+    // Returns an array of Tuples: (DateKey, [Items])
     var groups: [(Date, [UnifiedItem])] {
         let grouped = Dictionary(grouping: allItems) { item in
             Calendar.current.startOfDay(for: item.date)
         }
+        // Dictionary is unsorted, so we must sort by DateKey
         return grouped.sorted { $0.key < $1.key }
     }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header
+            // Header Section
             VStack(alignment: .leading, spacing: 24) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 8) {
@@ -137,6 +143,7 @@ struct UpcomingView: View {
                     }
                     Spacer()
                     
+                    // Add Button
                     Button(action: { isShowingAddSheet = true }) {
                         Image(systemName: "plus")
                             .font(.system(size: 16, weight: .bold))
@@ -148,7 +155,7 @@ struct UpcomingView: View {
                     .buttonStyle(.plain)
                 }
                 
-                // Filter Bar
+                // Horizontal Scrollable Filter Bar
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(UpcomingItem.UpcomingCategory.allCases) { category in
@@ -167,9 +174,10 @@ struct UpcomingView: View {
             .padding(.top, 40)
             .padding(.bottom, 24)
             
+            // Main Content Area
             ScrollView {
                 if allItems.isEmpty {
-                     // Empty State
+                     // Empty State View
                      VStack(spacing: 16) {
                         Image(systemName: "checklist")
                             .font(.system(size: 40))
@@ -196,9 +204,11 @@ struct UpcomingView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 60)
                 } else {
+                    // Conditional Layout: Grouped vs Flat Loop
                     if settings.groupUpcomingByDate {
                         LazyVStack(alignment: .leading, spacing: 24) {
                             ForEach(groups, id: \.0) { date, items in
+                                // Date Section
                                 VStack(alignment: .leading, spacing: 12) {
                                     Text(formatGroupDate(date))
                                         .font(.headline)
@@ -209,6 +219,7 @@ struct UpcomingView: View {
                                         UnifiedUpcomingItemRow(
                                             item: item,
                                             onEdit: { 
+                                                // Link back to original object
                                                 if let id = item.originalItemId, let manualItem = upcomingManager.items.first(where: { $0.id == id }) {
                                                     itemToEdit = manualItem
                                                 }
@@ -226,6 +237,7 @@ struct UpcomingView: View {
                         }
                         .padding(.bottom, 40)
                     } else {
+                        // Flat List (Simple Mode)
                         LazyVStack(spacing: 12) {
                             ForEach(allItems) { item in
                                 UnifiedUpcomingItemRow(
@@ -261,6 +273,8 @@ struct UpcomingView: View {
             AddUpcomingItemSheet(itemToEdit: item)
         }
     }
+    
+    // MARK: - Helpers
     
     private func toggleFilter(_ category: UpcomingItem.UpcomingCategory) {
         if selectedFilters.contains(category) {

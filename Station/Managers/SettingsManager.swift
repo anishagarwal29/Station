@@ -1,11 +1,25 @@
+/*
+ Station > Managers > SettingsManager.swift
+ ------------------------------------------
+ PURPOSE:
+ This class persists User Preferences (like which calendars to show or what tab to open first).
+ 
+ PATTERNS:
+ - Singleton: `SettingsManager.shared` ensures there is only ONE settings object for the whole app.
+ - Persistence: It saves every change instantly to `UserDefaults` so your settings are remembered after a restart.
+ */
+
 import Foundation
 import SwiftUI
 import Combine
 
 class SettingsManager: ObservableObject {
+    // SINGLETON ACCESS: We use this static property to access settings from anywhere.
     static let shared = SettingsManager()
     
     // MARK: - Calendar Settings
+    
+    // Note: We use `didSet` on every property to trigger an auto-save locally.
     @Published var selectedCalendarIDs: Set<String> = [] {
         didSet {
             save(selectedCalendarIDs, key: "selectedCalendarIDs")
@@ -17,6 +31,7 @@ class SettingsManager: ObservableObject {
         didSet { save(includeCalendarInUpcoming, key: "includeCalendarInUpcoming") }
     }
     
+    // Helper Enum for Time Limit selection in UI
     enum UpcomingTimeLimit: String, CaseIterable, Identifiable {
         case next3Days = "Next 3 Days"
         case next5Days = "Next 5 Days"
@@ -25,6 +40,7 @@ class SettingsManager: ObservableObject {
         
         var id: String { rawValue }
         
+        // Helper to convert selection to simple Integer for math
         var days: Int? {
             switch self {
             case .next3Days: return 3
@@ -95,7 +111,7 @@ class SettingsManager: ObservableObject {
     enum Tab: String, CaseIterable, Identifiable {
         case dashboard = "Dashboard"
         case upcoming = "Upcoming"
-        case notes = "Notes" // Assuming this is the 3rd tab
+        case notes = "Notes" // Assuming this is the 3rd tab (Resources)
         
         var id: String { rawValue }
     }
@@ -106,17 +122,21 @@ class SettingsManager: ObservableObject {
     
     // MARK: - Init & Persistence
     init() {
+        // Load whatever settings we saved last time the app ran.
         loadSettings()
     }
     
+    // Generic Helper to save any supported type to UserDefaults
     private func save(_ value: Any, key: String) {
         if let set = value as? Set<String> {
+             // Sets typically can't be saved directly to Plist, so convert to Array
              UserDefaults.standard.set(Array(set), forKey: key)
         } else {
             UserDefaults.standard.set(value, forKey: key)
         }
     }
     
+    // Restore all values
     private func loadSettings() {
         if let savedIDs = UserDefaults.standard.array(forKey: "selectedCalendarIDs") as? [String] {
             selectedCalendarIDs = Set(savedIDs)

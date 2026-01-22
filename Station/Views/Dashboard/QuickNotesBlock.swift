@@ -1,7 +1,18 @@
+/*
+ Station > Views > Dashboard > QuickNotesBlock.swift
+ ---------------------------------------------------
+ PURPOSE:
+ A simple "Scratchpad" on the dashboard for fleeting thoughts.
+ 
+ ARCHITECTURE:
+ - Uses a localized "Mini Manager" pattern (QuickNotesManager) inside the file since this data isn't needed globally.
+ - Shows how to build a list with a "Card" style row (QuickNoteRow).
+ */
+
 import SwiftUI
 import Combine
 
-// Separate Model for Dashboard Quick Notes
+// MODEL: Simple struct for a single note
 struct QuickNote: Identifiable, Codable {
     let id: UUID
     var content: String
@@ -14,8 +25,8 @@ struct QuickNote: Identifiable, Codable {
     }
 }
 
-// Separate Manager for Dashboard Quick Notes
-// Completely isolated from the main Notes Tab
+// MANAGER: Handles adding/deleting notes locally for this view.
+// In a larger app, this might be moved to a separate file, but for a "Widget", keeping it here is fine.
 class QuickNotesManager: ObservableObject {
     @Published var notes: [QuickNote] = []
     
@@ -26,7 +37,7 @@ class QuickNotesManager: ObservableObject {
     
     func addNote(_ content: String) {
         let newNote = QuickNote(content: content)
-        notes.insert(newNote, at: 0)
+        notes.insert(newNote, at: 0) // Add to top
     }
     
     func deleteNote(id: UUID) {
@@ -35,12 +46,16 @@ class QuickNotesManager: ObservableObject {
 }
 
 struct QuickNotesBlock: View {
+    // @StateObject: Owns the tech stack for this widget
     @StateObject private var quickNotesManager = QuickNotesManager()
+    
+    // UI State
     @State private var isShowingAddNote = false
     @State private var newNoteText = ""
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // Header
             HStack {
                 Text("Quick Notes")
                     .font(.system(size: 20, weight: .bold))
@@ -59,9 +74,10 @@ struct QuickNotesBlock: View {
                 .buttonStyle(.plain)
             }
             
+            // List of Notes
             VStack(alignment: .leading, spacing: 12) {
                 if quickNotesManager.notes.isEmpty {
-                    // Empty state styled as a card for consistency
+                    // Empty State: Encourages user to add something
                     HStack {
                         Text("No notes. Click + to add one.")
                             .font(.system(size: 14))
@@ -86,6 +102,7 @@ struct QuickNotesBlock: View {
             }
         }
         .sheet(isPresented: $isShowingAddNote) {
+            // Simple Sheet for entering text
             VStack(alignment: .leading, spacing: 16) {
                 Text("New Quick Note")
                     .font(.headline)
@@ -118,6 +135,7 @@ struct QuickNotesBlock: View {
                         isShowingAddNote = false
                     }) {
                         Text("Add Note")
+                            // ... Styling for Add Button ...
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(.white)
                             .padding(.horizontal, 16)
@@ -160,7 +178,7 @@ struct QuickNoteRow: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Main Content Area
+            // Note Content
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "pencil.and.outline")
                     .foregroundColor(.yellow)
@@ -178,7 +196,6 @@ struct QuickNoteRow: View {
                 
                 Spacer()
             }
-            // Reserve space for the checkmark overlay so text doesn't run under it
             .padding(.trailing, 32)
             .padding(16)
             
@@ -186,7 +203,7 @@ struct QuickNoteRow: View {
                 .frame(height: 0.5)
                 .background(Color.white.opacity(0.04))
             
-            // Footer Area
+            // Footer: Timestamp
             HStack {
                 Text(timeString(for: note.lastUpdated))
                     .font(.system(size: 11))
@@ -195,7 +212,7 @@ struct QuickNoteRow: View {
                 Spacer()
             }
             .padding(12)
-            .background(Color.white.opacity(0.02)) // Subtle footer contrast
+            .background(Color.white.opacity(0.02))
         }
         .background(Theme.cardBackground)
         .cornerRadius(Theme.cornerRadius)
@@ -203,7 +220,7 @@ struct QuickNoteRow: View {
             RoundedRectangle(cornerRadius: Theme.cornerRadius)
                 .stroke(Color.white.opacity(0.1), lineWidth: 1)
         )
-        // Checkmark Overlay - Positioned relative to the whole card, but visually aligned top-right
+        // Checkmark Overlay (Visible on Hover)
         .overlay(
             Group {
                 if isHovering {

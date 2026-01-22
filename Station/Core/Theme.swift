@@ -1,18 +1,35 @@
+/*
+ Station > Core > Theme.swift
+ ----------------------------
+ PURPOSE:
+ This file acts as the "Design System" for the entire app.
+ Instead of hardcoding colors like Color.red or hex codes in every view, we define them here ONCE.
+ This makes it easy to change the app's "Vibe" later by just editing this one file.
+ */
+
 import SwiftUI
 
 struct Theme {
-    static let background = Color(hex: "0B121E")
-    static let cardBackground = Color(hex: "151D29")
-    static let alertBackground = Color(hex: "0D2137")
-    static let accentBlue = Color(hex: "2187FF")
+    // Static Constants: Accessible anywhere as `Theme.background` without creating an instance.
+    static let background = Color(hex: "0B121E")    // Deep Navy/Black
+    static let cardBackground = Color(hex: "151D29") // Slightly lighter for Cards
+    static let alertBackground = Color(hex: "0D2137") // Specific background for Alerts
+    static let accentBlue = Color(hex: "2187FF")    // The main Brand color
+    
     static let textSecondary = Color.gray
     static let textPrimary = Color.white
-    static let urgentColor = Color.orange // Or red based on preference, mockup shows blue icon/text for urgent? Wait, mockup says "URGENT" in blue/white.
+    static let urgentColor = Color.orange
     
     static let cornerRadius: CGFloat = 12
     static let padding: CGFloat = 16
 }
 
+/*
+ EXTENSION: Color(hex:)
+ ----------------------
+ Swift doesn't have a built-in way to create colors from Hex Strings (like "#FFFFFF").
+ This extension teaches the standard Color struct how to understand them.
+ */
 extension Color {
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
