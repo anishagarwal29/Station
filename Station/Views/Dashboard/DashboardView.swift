@@ -35,6 +35,7 @@ struct DashboardView: View {
                         VStack(alignment: .leading, spacing: 24) {
                             UpcomingBlock()
                             QuickNotesBlock()
+                            PinnedResourcesBlock()
                         }
                         .frame(maxWidth: 400) // Fixed width sidebar
                     }

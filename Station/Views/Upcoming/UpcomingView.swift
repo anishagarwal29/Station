@@ -179,12 +179,7 @@ struct UpcomingView: View {
                 if allItems.isEmpty {
                      // Empty State View
                      VStack(spacing: 16) {
-                        Image(systemName: "checklist")
-                            .font(.system(size: 40))
-                            .foregroundColor(Theme.textSecondary.opacity(0.5))
-                        Text("No upcoming tasks")
-                            .font(.system(size: 16))
-                            .foregroundColor(Theme.textSecondary)
+                        StationEmptyState(icon: "checklist", message: "No upcoming tasks")
                         
                         if selectedFilters.count != UpcomingItem.UpcomingCategory.allCases.count {
                              Text("Try adjusting your filters")
@@ -203,6 +198,7 @@ struct UpcomingView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.top, 60)
+                    .padding(.horizontal, 40)
                 } else {
                     // Conditional Layout: Grouped vs Flat Loop
                     if settings.groupUpcomingByDate {

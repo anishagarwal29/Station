@@ -18,6 +18,7 @@ struct StationApp: App {
     // By creating them here, they live for the entire lifetime of the app.
     @StateObject private var upcomingManager = UpcomingManager()
     @StateObject private var calendarManager = CalendarManager()
+    @StateObject private var resourceManager = ResourceManager()
     
     var body: some Scene {
         WindowGroup {
@@ -29,6 +30,7 @@ struct StationApp: App {
                 // Making these objects available to ANY child view that asks for them.
                 .environmentObject(upcomingManager)
                 .environmentObject(calendarManager)
+                .environmentObject(resourceManager)
         }
         // Removes the standard gray title bar for a custom, full-content look.
         .windowStyle(.hiddenTitleBar)

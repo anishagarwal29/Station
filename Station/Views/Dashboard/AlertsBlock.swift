@@ -189,15 +189,7 @@ struct AlertsBlock: View {
             if let displayedAlert = activeAlert {
                 AlertCard(alert: displayedAlert)
             } else {
-                HStack {
-                    Text("No alerts right now")
-                        .font(.system(size: 14))
-                        .foregroundColor(Theme.textSecondary.opacity(0.5))
-                    Spacer()
-                }
-                .padding(Theme.padding)
-                .background(Theme.cardBackground.opacity(0.5))
-                .cornerRadius(Theme.cornerRadius)
+                StationEmptyState(icon: "bell.slash", message: "No alerts right now", includeBackground: true)
             }
         }
     }

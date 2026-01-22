@@ -16,15 +16,39 @@ struct AddResourceSheet: View {
     // Reference to the shared brain. We use this to actually add the item.
     @ObservedObject var manager: ResourceManager
     
+    // Optional Item to Edit
+    var itemToEdit: ResourceItem? = nil
+    
     // Binding to the 'show' toggle in the parent view.
     @Binding var isPresented: Bool
     
     // Temporary State for the Form
-    // These hold values ONLY while the user is typing.
-    @State private var title = ""
-    @State private var urlString = ""
-    @State private var selectedIcon = "link"
-    @State private var selectedTags: Set<String> = [] // Set ensures uniqueness (no duplicate tags)
+    @State private var title: String
+    @State private var urlString: String
+    @State private var selectedIcon: String
+    @State private var selectedTags: Set<String>
+    @State private var isPinned: Bool
+    
+    init(manager: ResourceManager, isPresented: Binding<Bool>, itemToEdit: ResourceItem? = nil) {
+        self.manager = manager
+        self._isPresented = isPresented
+        self.itemToEdit = itemToEdit
+        
+        // Initialize State based on whether we are editing or creating
+        if let item = itemToEdit {
+            _title = State(initialValue: item.title)
+            _urlString = State(initialValue: item.urlString)
+            _selectedIcon = State(initialValue: item.iconName)
+            _selectedTags = State(initialValue: Set(item.tags))
+            _isPinned = State(initialValue: item.isPinned)
+        } else {
+            _title = State(initialValue: "")
+            _urlString = State(initialValue: "")
+            _selectedIcon = State(initialValue: "link")
+            _selectedTags = State(initialValue: [])
+            _isPinned = State(initialValue: false)
+        }
+    }
     
     let icons = ["link", "book", "graduationcap", "folder", "doc.text", "globe", "flask", "desktopcomputer"]
     let availableTags = ["Math", "Science", "History", "English", "CS", "General", "Exams", "Reference"]
@@ -33,7 +57,7 @@ struct AddResourceSheet: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("Add Resource")
+                Text(itemToEdit == nil ? "Add Resource" : "Edit Resource")
                     .font(.headline)
                     .foregroundColor(Theme.textPrimary)
                 Spacer()
@@ -50,6 +74,18 @@ struct AddResourceSheet: View {
                     VStack(alignment: .leading, spacing: 16) {
                         InputField(title: "Title", placeholder: "e.g. Textbook PDF", text: $title)
                         InputField(title: "URL", placeholder: "https://...", text: $urlString)
+                        
+                        Toggle(isOn: $isPinned) {
+                            HStack(spacing: 8) {
+                                Image(systemName: isPinned ? "pin.fill" : "pin")
+                                    .foregroundColor(isPinned ? Theme.accentBlue : Theme.textSecondary)
+                                Text("Pin to Dashboard")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(Theme.textPrimary)
+                            }
+                        }
+                        .toggleStyle(.switch)
+                        .padding(.top, 4)
                     }
                     
                     // ... (Icon Picker and Tags) ...
@@ -95,12 +131,23 @@ struct AddResourceSheet: View {
             HStack {
                 Button(action: {
                     // ACTION: Commit Data
-                    // 1. Ask manager to create the object
-                    manager.addItem(title: title, urlString: urlString, tags: Array(selectedTags), iconName: selectedIcon)
+                    if let existingItem = itemToEdit {
+                        // EDIT MODE
+                        var updated = existingItem
+                        updated.title = title
+                        updated.urlString = urlString
+                        updated.tags = Array(selectedTags)
+                        updated.iconName = selectedIcon
+                        updated.isPinned = isPinned
+                        manager.updateItem(updated)
+                    } else {
+                        // CREATE MODE
+                        manager.addItem(title: title, urlString: urlString, tags: Array(selectedTags), iconName: selectedIcon, isPinned: isPinned)
+                    }
                     // 2. Close the sheet
                     isPresented = false
                 }) {
-                    Text("Add Resource")
+                    Text(itemToEdit == nil ? "Add Resource" : "Save Changes")
                         .font(.system(size: 14, weight: .semibold))
                         // ... styling ...
                         .frame(maxWidth: .infinity)

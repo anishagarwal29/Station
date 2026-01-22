@@ -17,17 +17,22 @@ struct ResourceItem: Identifiable, Codable, Equatable {
     let id: UUID
     
     // Core properties of a resource
+    // Core properties of a resource
     var title: String
     var urlString: String // The raw text typed by the user
     var tags: [String]    // A list of categories like "Math", "Science"
     var iconName: String  // The SF Symbol name string (e.g. "link", "book")
+    var isPinned: Bool    // New: Pinned status for Dashboard
+    var dateCreated: Date // New: Timestamp for sorting by newest
     
-    init(id: UUID = UUID(), title: String, urlString: String, tags: [String], iconName: String) {
+    init(id: UUID = UUID(), title: String, urlString: String, tags: [String], iconName: String, isPinned: Bool = false, dateCreated: Date = Date()) {
         self.id = id
         self.title = title
         self.urlString = urlString
         self.tags = tags
         self.iconName = iconName
+        self.isPinned = isPinned
+        self.dateCreated = dateCreated
     }
     
     // COMPUTED PROPERTY: URL Sanitization

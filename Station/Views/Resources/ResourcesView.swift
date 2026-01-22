@@ -12,13 +12,16 @@
 import SwiftUI
 
 struct ResourcesView: View {
-    // @StateObject: We OWN this data object. The view creates it, and it stays alive as long as the view is needed.
-    @StateObject private var resourceManager = ResourceManager()
+    // @EnvironmentObject: We now get this from StationApp, shared with the Dashboard.
+    @EnvironmentObject var resourceManager: ResourceManager
     
     // @State: Local UI variables. Changing these triggers a re-render.
     @State private var searchText = ""
     @State private var selectedTag: String? = nil
     @State private var showingAddSheet = false
+    @State private var itemToEdit: ResourceItem? = nil
+    @State private var itemToDelete: ResourceItem? = nil
+    @State private var showDeleteConfirmation = false
     
     // LOGIC: Dynamically Calculate Tags
     // We don't store a list of "all valid tags". Instead, we look at all existing items
@@ -37,6 +40,15 @@ struct ResourcesView: View {
             let matchesSearch = searchText.isEmpty || item.title.localizedCaseInsensitiveContains(searchText)
             let matchesTag = selectedTag == nil || (selectedTag != nil && item.tags.contains(selectedTag!))
             return matchesSearch && matchesTag
+        }
+        .sorted { (item1, item2) -> Bool in
+            // Sort Rule: Pinned items come first
+            if item1.isPinned != item2.isPinned {
+                return item1.isPinned
+            } else {
+                // Secondary Sort: Date Created (Newest First)
+                return item1.dateCreated > item2.dateCreated
+            }
         }
     }
     
@@ -114,34 +126,56 @@ struct ResourcesView: View {
              }
              
              // Grid Content
-             ScrollView {
-                 LazyVGrid(columns: columns, spacing: 16) {
-                     ForEach(filteredItems) { item in
-                         ResourceCard(item: item) {
-                             // EVENT HANDLER: Opening URLs
-                             // When the "Open" button is clicked:
-                             // 1. We unwrap the safely computed URL (see ResourceItem.swift).
-                             if let url = item.url {
-                                 // 2. We ask the macOS Workspace (the OS itself) to open this URL.
-                                 // This launches the default browser (Safari, Chrome) or app associated with the link.
-                                 NSWorkspace.shared.open(url)
-                             }
-                         }
-                         .contextMenu {
-                             Button("Delete", role: .destructive) {
-                                 resourceManager.deleteItem(id: item.id)
-                             }
-                         }
-                     }
+             // Grid Content
+             if resourceManager.items.isEmpty {
+                 Spacer()
+                 StationEmptyState(icon: "folder.badge.plus", message: "Your study hub is empty. Add your first resource to get started!")
+                     .padding(32)
+                 Spacer()
+             } else {
+                 ScrollView {
+                     LazyVGrid(columns: columns, spacing: 16) {
+                         ForEach(filteredItems) { item in
+                             ResourceCard(item: item, onOpen: {
+                                 // EVENT HANDLER: Opening URLs
+                                 // When the "Open" button is clicked:
+                                 // 1. We unwrap the safely computed URL (see ResourceItem.swift).
+                                 if let url = item.url {
+                                     // 2. We ask the macOS Workspace (the OS itself) to open this URL.
+                                     // This launches the default browser (Safari, Chrome) or app associated with the link.
+                                     NSWorkspace.shared.open(url)
+                                 }
+                              }, onTogglePin: {
+                                  var updated = item
+                                  updated.isPinned.toggle()
+                                  resourceManager.updateItem(updated)
+                              }, onEdit: {
+                                  itemToEdit = item
+                                  showingAddSheet = true
+                              }, onDelete: {
+                                  itemToDelete = item
+                                  showDeleteConfirmation = true
+                              })
+                          }
+                      }
+                      .padding(32)
+                      .padding(.bottom, 80) // Space for bottom tab bar
+                  }
+              }
+         }
+         .background(Theme.background)
+         .sheet(isPresented: $showingAddSheet, onDismiss: { itemToEdit = nil }) {
+             AddResourceSheet(manager: resourceManager, isPresented: $showingAddSheet, itemToEdit: itemToEdit)
+         }
+         .confirmationDialog("Delete Resource?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
+             Button("Delete", role: .destructive) {
+                 if let item = itemToDelete {
+                     resourceManager.deleteItem(id: item.id)
                  }
-                 .padding(32)
-                 .padding(.bottom, 80) // Space for bottom tab bar
              }
-        }
-        .background(Theme.background)
-        .sheet(isPresented: $showingAddSheet) {
-            AddResourceSheet(manager: resourceManager, isPresented: $showingAddSheet)
-        }
+         } message: {
+             Text("Are you sure you want to delete this resource? This cannot be undone.")
+         }
     }
 }
 
@@ -151,12 +185,16 @@ struct ResourceCard: View {
     // Closure: Allows the parent view to define WHAT happens when tapped,
     // while this view handles HOW it looks and detects the tap.
     let onOpen: () -> Void
+    let onTogglePin: () -> Void
+    let onEdit: () -> Void
+    let onDelete: () -> Void
     
     @State private var isHovering = false
+    @State private var showControls = false
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-             HStack(alignment: .top) {
+             HStack(alignment: .center, spacing: 12) {
                  // ... (Icon logic)
                  Image(systemName: item.iconName)
                      .font(.system(size: 24))
@@ -167,9 +205,7 @@ struct ResourceCard: View {
                  
                  Spacer()
                  
-                 // UI: Tag Pills logic
-                 // We only show the first 2 tags to prevent the card from overflowing.
-                 // If there are more, we show a "+X" indicator.
+                 // Tags moved to the right
                  HStack(spacing: 4) {
                      ForEach(item.tags.prefix(2), id: \.self) { tag in
                          Text(tag)
@@ -213,5 +249,63 @@ struct ResourceCard: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(Color.white.opacity(0.05), lineWidth: 1)
         )
+        // Absolute Pin Badge - "Pinned to Board" Look
+        .overlay(alignment: .topTrailing) {
+            if item.isPinned {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 14)) // Slightly larger for the "physical" look
+                    .foregroundColor(Theme.textSecondary.opacity(0.8))
+                    .rotationEffect(.degrees(45))
+                    .padding(8)
+                    .background(Circle().fill(Theme.background).frame(width: 24, height: 24).shadow(radius: 2))
+                    .offset(x: 8, y: -8) // Push it half-out
+            }
+        }
+        // Hover Overlay for Edit/Delete
+        .overlay(
+            ZStack {
+                if showControls {
+                    VStack {
+                        HStack(spacing: 8) {
+                            Button(action: onTogglePin) {
+                                Image(systemName: item.isPinned ? "pin.slash.fill" : "pin.fill")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(Theme.textPrimary)
+                                    .frame(width: 32, height: 32)
+                            }
+                            .buttonStyle(.plain)
+                            .help(item.isPinned ? "Unpin" : "Pin")
+
+                            Button(action: onEdit) {
+                                Image(systemName: "pencil")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 32, height: 32)
+                            }
+                            .buttonStyle(.plain)
+                            
+                            Button(action: onDelete) {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.red)
+                                    .frame(width: 32, height: 32)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .background(Material.ultraThin)
+                        .clipShape(Capsule())
+                        .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(8)
+                    .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                }
+            }
+        )
+        .onHover { hover in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showControls = hover
+            }
+        }
     }
 }

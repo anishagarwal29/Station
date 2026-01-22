@@ -34,9 +34,15 @@ class ResourceManager: ObservableObject {
     
     // MARK: - user Actions
     
-    func addItem(title: String, urlString: String, tags: [String], iconName: String) {
-        let newItem = ResourceItem(title: title, urlString: urlString, tags: tags, iconName: iconName)
+    func addItem(title: String, urlString: String, tags: [String], iconName: String, isPinned: Bool = false) {
+        let newItem = ResourceItem(title: title, urlString: urlString, tags: tags, iconName: iconName, isPinned: isPinned)
         items.append(newItem) // Triggers @Published -> didSet -> saveItems()
+    }
+    
+    func updateItem(_ item: ResourceItem) {
+        if let index = items.firstIndex(where: { $0.id == item.id }) {
+            items[index] = item
+        }
     }
     
     func deleteItem(id: UUID) {

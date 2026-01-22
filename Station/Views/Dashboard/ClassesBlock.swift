@@ -13,9 +13,14 @@
 
 import SwiftUI
 import EventKit
+import Combine
 
 struct ClassesBlock: View {
     @EnvironmentObject var calendarManager: CalendarManager
+    
+    // State to trigger minute-by-minute updates
+    @State private var currentTime = Date()
+    private let timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -36,29 +41,28 @@ struct ClassesBlock: View {
             
             VStack(spacing: 12) {
                 // Filter Logic:
-                // Only take events where `startDate` is inside the current day.
-                let todaysEvents = calendarManager.events.filter { Calendar.current.isDateInToday($0.startDate) }
+                // 1. Must be TODAY.
+                // 2. Must NOT be over (endDate > now).
+                let todaysEvents = calendarManager.events.filter { event in
+                    Calendar.current.isDateInToday(event.startDate) && event.endDate > currentTime
+                }
                 
                 if todaysEvents.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "calendar.badge.exclamationmark")
-                            .font(.system(size: 32))
-                            .foregroundColor(Theme.textSecondary.opacity(0.5))
-                        Text(calendarManager.permissionStatus == .authorized ? "No events scheduled for today" : "Calendar access needed")
-                            .foregroundColor(Theme.textSecondary)
-                        
-                        if calendarManager.permissionStatus != .authorized {
+                    if calendarManager.permissionStatus == .authorized {
+                        StationEmptyState(icon: "calendar.badge.clock", message: "No upcoming classes today", includeBackground: true)
+                    } else {
+                        VStack(spacing: 12) {
+                            StationEmptyState(icon: "lock.fill", message: "Calendar access needed")
                             Button("Grant Access") {
                                 calendarManager.requestAccess()
                             }
                             .buttonStyle(.borderedProminent)
                             .tint(Theme.accentBlue)
                         }
+                        .padding(12)
+                        .background(Theme.cardBackground.opacity(0.5))
+                        .cornerRadius(Theme.cornerRadius)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 40)
-                    .background(Theme.cardBackground)
-                    .cornerRadius(Theme.cornerRadius)
                 } else {
                     ForEach(Array(todaysEvents.enumerated()), id: \.element.id) { index, event in
                         let status = getEventStatus(event: event, allEvents: todaysEvents)
@@ -75,13 +79,19 @@ struct ClassesBlock: View {
         }
         .onAppear {
             calendarManager.requestAccess()
+            // Initialize time strictly
+            currentTime = Date() 
+        }
+        .onReceive(timer) { input in
+             currentTime = input
         }
     }
     
     // MARK: - Status Logic
     
     private func getEventStatus(event: CalendarEvent, allEvents: [CalendarEvent]) -> EventStatus {
-        let now = Date()
+        // Use the synchronized time
+        let now = currentTime
         
         // Is it happening now?
         if now >= event.startDate && now <= event.endDate {
