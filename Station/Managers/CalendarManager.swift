@@ -27,9 +27,11 @@ struct CalendarEvent: Identifiable {
     let startDate: Date
     let endDate: Date
     let location: String?
+    let isAllDay: Bool
     
     // Helper to print "10:00 - 11:30"
     var timeString: String {
+        if isAllDay { return "All Day" }
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
         return "\(formatter.string(from: startDate)) - \(formatter.string(from: endDate))"
@@ -110,19 +112,8 @@ class CalendarManager: ObservableObject {
             self.availableCalendars = unique
         }
         
-        // 2. Filter based on SettingsManager selection
-        // "Only events from toggled calendars should appear"
-        let selectedIDs = SettingsManager.shared.selectedCalendarIDs
-        let calendarsToFetch = allCalendars.filter { selectedIDs.contains($0.calendarIdentifier) }
-        
-        // If nothing is toggled, showing nothing is the correct behavior per constraints.
-        // However, for UX, if NO calendars are selected effectively (empty set), we return empty.
-        if calendarsToFetch.isEmpty {
-            DispatchQueue.main.async {
-                self.events = []
-            }
-            return
-        }
+        // 2. Use all unique calendars (No longer filtering by Settings)
+        let calendarsToFetch = unique
         
         // Query the EventStore
         let predicate = eventStore.predicateForEvents(withStart: startOfDay, end: endOfSearch, calendars: calendarsToFetch)
@@ -147,14 +138,15 @@ class CalendarManager: ObservableObject {
         // 4. Map to our clean struct
         DispatchQueue.main.async {
             self.events = uniqueEvents
-                .filter { !$0.isAllDay } // We only want classes/scheduled events
+                //.filter { !$0.isAllDay } // Removed filter to show all-day events
                 .map { ekEvent in
                     CalendarEvent(
                         id: ekEvent.eventIdentifier,
                         title: ekEvent.title ?? "Untitled",
                         startDate: ekEvent.startDate,
                         endDate: ekEvent.endDate,
-                        location: ekEvent.location
+                        location: ekEvent.location,
+                        isAllDay: ekEvent.isAllDay
                     )
                 }
                 .sorted { $0.startDate < $1.startDate }

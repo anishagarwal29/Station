@@ -30,18 +30,35 @@ struct QuickNote: Identifiable, Codable {
 class QuickNotesManager: ObservableObject {
     @Published var notes: [QuickNote] = []
     
+    private let saveKey = "quick_notes_data"
+    
     init() {
-        // Optional: Load some mock data or persistence here if needed
-        // For now, simple in-memory or mock for dashboard
+        loadNotes()
     }
     
     func addNote(_ content: String) {
         let newNote = QuickNote(content: content)
         notes.insert(newNote, at: 0) // Add to top
+        saveNotes()
     }
     
     func deleteNote(id: UUID) {
         notes.removeAll { $0.id == id }
+        saveNotes()
+    }
+    
+    private func saveNotes() {
+        if let encoded = try? JSONEncoder().encode(notes) {
+            UserDefaults.standard.set(encoded, forKey: saveKey)
+        }
+    }
+    
+    private func loadNotes() {
+        guard let data = UserDefaults.standard.data(forKey: saveKey),
+              let decoded = try? JSONDecoder().decode([QuickNote].self, from: data) else {
+            return
+        }
+        self.notes = decoded
     }
 }
 
@@ -111,7 +128,7 @@ struct QuickNotesBlock: View {
                 TextEditor(text: $newNoteText)
                     .scrollContentBackground(.hidden)
                     .frame(height: 150)
-                    .padding(8)
+                    .padding(16)
                     .background(Color.white.opacity(0.05))
                     .cornerRadius(8)
                     .overlay(

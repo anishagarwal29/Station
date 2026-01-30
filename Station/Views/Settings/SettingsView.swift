@@ -22,12 +22,7 @@ struct SettingsView: View {
         calendarManager.permissionStatus == .authorized || calendarManager.permissionStatus == .fullAccess
     }
     
-    private var selectedCalendarsSummary: String {
-        let count = settings.selectedCalendarIDs.count
-        if count == 0 { return "None selected" }
-        if count == calendarManager.availableCalendars.count { return "All calendars" }
-        return "\(count) selected"
-    }
+
     
     var body: some View {
         ScrollView {
@@ -60,35 +55,22 @@ struct SettingsView: View {
                         .padding()
                     } else {
                         CalendarGroupRow(
-                            title: "Your Calendars",
-                            subtitle: selectedCalendarsSummary,
-                            icon: "tray.full.fill"
+                            title: "Connected Calendars",
+                            subtitle: "All calendars are visible",
+                            icon: "checkmark.circle.fill"
                         ) {
                             ForEach(calendarManager.availableCalendars, id: \.calendarIdentifier) { calendar in
-                                Toggle(isOn: Binding(
-                                    get: { settings.selectedCalendarIDs.contains(calendar.calendarIdentifier) },
-                                    set: { isSelected in
-                                        if isSelected {
-                                            settings.selectedCalendarIDs.insert(calendar.calendarIdentifier)
-                                        } else {
-                                            settings.selectedCalendarIDs.remove(calendar.calendarIdentifier)
-                                        }
-                                        calendarManager.fetchEvents()
-                                    }
-                                )) {
-                                    HStack {
-                                        Circle()
-                                            .fill(Color(calendar.cgColor))
-                                            .frame(width: 8, height: 8)
-                                        Text(calendar.title)
-                                            .foregroundColor(Theme.textPrimary)
-                                        Spacer()
-                                        Text(calendar.source.title)
-                                            .font(.caption)
-                                            .foregroundColor(Theme.textSecondary)
-                                    }
+                                HStack {
+                                    Circle()
+                                        .fill(Color(calendar.cgColor))
+                                        .frame(width: 8, height: 8)
+                                    Text(calendar.title)
+                                        .foregroundColor(Theme.textPrimary)
+                                    Spacer()
+                                    Text(calendar.source.title)
+                                        .font(.caption)
+                                        .foregroundColor(Theme.textSecondary)
                                 }
-                                .toggleStyle(SwitchToggleStyle(tint: Theme.accentBlue))
                                 .padding(.vertical, 4)
                             }
                         }
