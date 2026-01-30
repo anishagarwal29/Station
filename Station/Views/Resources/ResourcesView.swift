@@ -23,6 +23,11 @@ struct ResourcesView: View {
     @State private var itemToDelete: ResourceItem? = nil
     @State private var showDeleteConfirmation = false
     
+    // DEEP LINK: Sheet Logic
+    // We can't init the sheet with data directly from here easily without a binding.
+    // Instead, we'll use a side-effect. When 'pendingResource' appears, we open the sheet.
+    // The Sheet itself will have to read 'pendingResource' from the manager.
+    
     // LOGIC: Dynamically Calculate Tags
     // We don't store a list of "all valid tags". Instead, we look at all existing items
     // and extract every unique tag found. This means if you delete the last item with "Math",
@@ -164,7 +169,9 @@ struct ResourcesView: View {
               }
          }
          .background(Theme.background)
-         .sheet(isPresented: $showingAddSheet, onDismiss: { itemToEdit = nil }) {
+         .sheet(isPresented: $showingAddSheet, onDismiss: { 
+             itemToEdit = nil 
+         }) {
              AddResourceSheet(manager: resourceManager, isPresented: $showingAddSheet, itemToEdit: itemToEdit)
          }
          .confirmationDialog("Delete Resource?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {

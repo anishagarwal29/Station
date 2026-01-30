@@ -23,9 +23,16 @@ class ResourceManager: ObservableObject {
             saveItems()
         }
     }
+    // NAVIGATION TRIGGER
+    // When true, the MainTabView will switch to the Resources tab.
+    @Published var shouldNavigateToResources: Bool = false
+    
     
     // The specific "Frequency" or "ID" we use to store this data in the user's standardized storage.
     private let key = "station_resources_list"
+    
+    // DEEP LINKING SUPPORT
+    // (Removed PendingResource in favor of Silent Add)
     
     init() {
         // Load data immediately when the app starts up.

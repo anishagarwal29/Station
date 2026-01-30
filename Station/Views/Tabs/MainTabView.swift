@@ -17,6 +17,9 @@ struct MainTabView: View {
     // We update the 'selectedTab' on launch based on user preference
     @ObservedObject var settings = SettingsManager.shared
     
+    // NAVIGATION LISTENER
+    @EnvironmentObject var resourceManager: ResourceManager
+    
     var body: some View {
         ZStack(alignment: .bottom) {
             // LAYER 1: Main Content Area
@@ -88,6 +91,13 @@ struct MainTabView: View {
             case .dashboard: selectedTab = 0
             case .upcoming: selectedTab = 1
             case .notes: selectedTab = 2
+            }
+        }
+        // DEEP LINK NAVIGATION
+        .onChange(of: resourceManager.shouldNavigateToResources) { shouldNavigate in
+            if shouldNavigate {
+                selectedTab = 2 // Switch to Resources
+                resourceManager.shouldNavigateToResources = false // Reset trigger
             }
         }
     }
